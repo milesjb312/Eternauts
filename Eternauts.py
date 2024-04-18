@@ -1,8 +1,5 @@
 #Operational Imports (These come from python modules that I either imported at the beginning or were auto-imported for some reason.)
-from re import S
-from tkinter import BOTTOM, CURRENT
-from turtle import position, screensize
-import pygame, math, sys, numpy, noise
+import pygame
 from pygame import font
 import chunks
 pygame.init()
