@@ -80,11 +80,10 @@ def det_adj_cwods(wod):
 def gen_chunk(cwod): #generate a chunk, given its top left pixel location
     chunk_lon = cwod[0]
     chunk_lat = cwod[1]
-    chunk_array = None 
+    chunk_array = numpy.random.poisson(.005,size=(16,16))
     right_chunk_array = None
     left_chunk_array = None
     if cwod not in chunk_book and chunk_lat<=0:
-        chunk_array = numpy.random.poisson(.005,size=(16,16))
         right_chunk_array = numpy.zeros((chunk_size,chunk_size))
         left_chunk_array = numpy.zeros((chunk_size,chunk_size))
         for row in range(chunk_size):
@@ -127,8 +126,15 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
         chunk_book[cwod] = chunk_array
         
     elif cwod not in chunk_book and chunk_lat>0:
-        chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
+        chunk_type = numpy.random.poisson(.5)
+        if chunk_type != 2:
+            chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
+        else:
+            for row in range(chunk_size):
+                for column in range(chunk_size):
+                    chunk_array[row,column] = 3
         chunk_book[cwod] = chunk_array
+        
 
     if right_chunk_array is not None and (cwod[0]+pixel_total,cwod[1]) in chunk_book:
         chunk = chunk_book[(cwod[0]+pixel_total, cwod[1])]
@@ -145,10 +151,6 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
 #NEXT STEP: Make alternate block types.
 #I believe the most computationally expensive tool I use is the block_rect list.
 def make_chunks(wod,display):
-    global all_block_rects
-    global solid_block_rects
-    global air_block_rects
-    global liquid_block_rects
     det_adj_cwods(wod)
     block_rects = {}
     block_rects['solid'] = []
@@ -177,6 +179,18 @@ def make_chunks(wod,display):
 
 #draw the chunks that were created
 #I need to change this one so that liquid, solid, and gas blocks are made differently
+#def draw_chunks(block_rects,display):
+#    for block_rect in block_rects:
+#        pygame.draw.rect(display, (10,255,30),block_rect)
+
 def draw_chunks(block_rects,display):
-    for block_rect in block_rects:
-        pygame.draw.rect(display, (10,255,30),block_rect)
+    for block_type, block_rects_list in block_rects.items():
+        if block_type == 'solid':
+            for block_rect in block_rects_list:
+                pygame.draw.rect(display, (10,255,30),block_rect)
+        if block_type == 'liquid':
+            for block_rect in block_rects_list:
+                pygame.draw.rect(display, (10,30,255),block_rect)
+        if block_type == 'gas':
+            for block_rect in block_rects_list:
+                pygame.draw.rect(display, (10,20,10),block_rect)

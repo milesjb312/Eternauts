@@ -78,12 +78,12 @@ which will run whichever movement function should currently be active.
 #All objects' locations are defined based on their own wod.
 
 #THIS IS WHERE I NEED TO WORK NEXT TO MAKE IT SO THAT THE GAME CHECKS WHETHER YOU'RE RUNNING INTO SOLIDS OR LIQUIDS.
-#Check if the player is running into anything
+#This is like the biggest physics driver of the game, to be honest.
 def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_list,bouncing,digging,swimming):
-    close_solid_blocks = [block for block in all_blocks['solid'] if player_rect_inf.colliderect(block)] #the all_blocks['solid'] comes from a global statement in chunks.py
+    close_solid_blocks = [block for block in all_blocks['solid'] if player_rect_inf.colliderect(block)]
     close_liquid_blocks = [block for block in all_blocks['liquid'] if player_rect_inf.colliderect(block)]
     #close_gas_blocks = [block for block in all_blocks['gas'] if player_rect_inf.colliderect(block)]
-    colliding_blocks = []
+    #colliding_blocks = []
 
     bouncing = bouncing
     bounce_rect = None
@@ -98,19 +98,18 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
     right_bound = False
     left_bound = False
     bottom_bound = False
+    top_wet = False
+    right_wet = False
+    left_wet = False
+    bottom_wet = False
 
     digging = digging
     swimming = swimming
 
     for block in close_solid_blocks:
-        #if player_rect.colliderect(block):
-        #colliding_blocks.append(block)
         bounce_rect = player_rect.clip(block)
         bounce_width = bounce_rect.width
         bounce_height = bounce_rect.height
-        #elif not player_rect.colliderect(block):
-            #colliding_blocks = [x for x in colliding_blocks if x != block]
-            
 
         if (player_rect_inf_top.colliderect(block)):
             top_bound = True
@@ -153,16 +152,16 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
 
     for block in close_liquid_blocks:
         if (player_rect_inf_top.colliderect(block)):
-            top_bound = True
+            top_wet = True
         if (player_rect_inf_bottom.colliderect(block)):
-            bottom_bound = True
+            bottom_wet = True
         if (player_rect_inf_right.colliderect(block)):
-            right_bound = True
+            right_wet = True
         if (player_rect_inf_left.colliderect(block)):
-            left_bound = True
-        if player_rect.colliderect(block) or (top_bound and right_bound) or (top_bound and left_bound) or (bottom_bound and right_bound) or (bottom_bound and left_bound):
+            left_wet = True
+        if player_rect.colliderect(block) or (top_wet and right_wet) or (top_wet and left_wet) or (bottom_wet and right_wet) or (bottom_wet and left_wet):
             swimming = True
-        if not top_bound and not right_bound and not left_bound and not player_rect.colliderect(block):
+        if not top_wet and not right_wet and not left_wet and not player_rect.colliderect(block):
             swimming = False
 
         """
@@ -179,12 +178,10 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
             breathing = True
         """
 
-    #if keypressed[K_p]:
-        #print(f'collisions:{top_bound,right_bound,bottom_bound,left_bound,swimming},\n player_rect:{player_rect.top,player_rect.right,player_rect.bottom,player_rect.left}')
-    return top_bound,right_bound,bottom_bound,left_bound,bouncing,bounce_width,bounce_height,digging,swimming
+    return top_bound,right_bound,bottom_bound,left_bound,bouncing,bounce_width,bounce_height,digging,swimming,top_wet
 
 def bounce(bounce_list,bounce_width,bounce_height,movement_x=None,movement_y=None):
-    print(bounce_list)
+    #print(bounce_list)
     movement_x = 0
     movement_y = 0
     top_bounce = "top_bounce"
@@ -246,10 +243,10 @@ def run(right_bound,bottom_bound,left_bound,run_strength,fly_endurance,fly_time,
             movement_y += 8
     return movement_x,movement_y,fly_time
 
-def swim(top_bound,movement_x,movement_y,keypressed=None):
+def swim(top_wet,movement_x,movement_y,keypressed=None):
     movement_x = movement_x
     movement_y = movement_y
-    if top_bound:
+    if top_wet:
         movement_y += 0.5
     if keypressed[K_LEFT]:
         if not movement_x < -10:
@@ -275,14 +272,15 @@ def fly(top_bound,right_bound,bottom_bound,left_bound,fly_strength,fly_endurance
     movement_y = movement_y
     if not bottom_bound and not movement_y < -fly_strength:
         movement_y -= 5
-        if keypressed[K_LEFT]:
-            if not left_bound and not movement_x < fly_strength*-1:
-                movement_x += int(-8)
-        if keypressed[K_RIGHT]:
-            if not right_bound and not movement_x > fly_strength:
-                movement_x += int(8)
-    if bottom_bound:
+    elif bottom_bound:
+        #To fix the glitch that lets you float on water in the sky, I need to retrieve the type of the block that's being collided with here. I don't know how, though.
         movement_y = 0
+    if keypressed[K_LEFT]:
+        if not left_bound and not movement_x < fly_strength*-1:
+            movement_x += int(-8)
+    if keypressed[K_RIGHT]:
+        if not right_bound and not movement_x > fly_strength:
+            movement_x += int(8)
         
     if 0 < fly_time <= fly_endurance:
         if keypressed[K_UP]:
@@ -312,8 +310,6 @@ while running:
                 #save_and_load.save()
                 pass
             elif event.key == K_p:
-                #print(f'{bounds}')
-                #print(f'cwod:{wod}')
                 if (wod[0]//chunks.pixel_total*chunks.pixel_total,wod[1]//chunks.pixel_total*chunks.pixel_total) in chunks.chunk_book:
                     print(f'chunk_book[cwod]:{chunks.chunk_book[(wod[0]//chunks.pixel_total*chunks.pixel_total,-wod[1]//chunks.pixel_total*chunks.pixel_total)]}')
         elif event.type == QUIT:
@@ -334,7 +330,7 @@ while running:
 
     #Drawing updates
     display.fill((10, 130, 255))
-    chunks.draw_chunks(block_rects['solid'],display)
+    chunks.draw_chunks(block_rects,display)
     
     #Movement
     keypressed = pygame.key.get_pressed()
@@ -348,7 +344,7 @@ while running:
     elif bounds[7]:
         movement_x,movement_y = dig(bounds[0],bounds[1],bounds[2],bounds[3],player_1.run_strength,keypressed,movement_x,movement_y)
     elif bounds[8]:
-        movement_x,movement_y = swim(bounds[0],movement_x,movement_y,keypressed)
+        movement_x,movement_y = swim(bounds[9],movement_x,movement_y,keypressed)
     elif bounds[2]:    
         movement_x,movement_y,player_1.fly_time = run(bounds[1],bounds[2],bounds[3],player_1.run_strength,player_1.fly_endurance,player_1.fly_time,keypressed)
     else:
