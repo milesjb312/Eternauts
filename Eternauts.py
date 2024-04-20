@@ -26,16 +26,14 @@ class player(pygame.sprite.Sprite):
         self.rect = self.Surface.get_rect()
         self.rect = self.Surface.get_rect()
         self.rect.center = (spawn_loc_x,spawn_loc_y)
-        self.fly_strength = 24
-        self.fly_endurance = 500
+        self.fly_strength = chunks.block_size*2/3
+        self.fly_endurance = chunks.block_size/3
         self.fly_time = self.fly_endurance
-        self.bounce_list = []
+        self.bounce_book = {'bounce_x':0,'bounce_y':0}
         self.bouncing = False
-        self.bounce_width = 0
-        self.bounce_height = 0
         self.digging = False
         self.swimming = False
-        self.run_strength = 10
+        self.run_strength = chunks.block_size/2
 
     def update_collision_rects(self):
         self.rect_inf_top = pygame.Rect(self.rect.left,self.rect.top-self.rect.height/10,self.rect.width,self.rect.height/10)
@@ -79,21 +77,18 @@ which will run whichever movement function should currently be active.
 
 #THIS IS WHERE I NEED TO WORK NEXT TO MAKE IT SO THAT THE GAME CHECKS WHETHER YOU'RE RUNNING INTO SOLIDS OR LIQUIDS.
 #This is like the biggest physics driver of the game, to be honest.
-def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_list,bouncing,digging,swimming):
+def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming,movement_x,movement_y):
+    #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
     close_solid_blocks = [block for block in all_blocks['solid'] if player_rect_inf.colliderect(block)]
     close_liquid_blocks = [block for block in all_blocks['liquid'] if player_rect_inf.colliderect(block)]
     #close_gas_blocks = [block for block in all_blocks['gas'] if player_rect_inf.colliderect(block)]
     #colliding_blocks = []
 
+    #initial values
     bouncing = bouncing
+    digging = digging
+    swimming = swimming
     bounce_rect = None
-    bounce_width = 0
-    bounce_height = 0
-    top_bounce = "top_bounce"
-    bottom_bounce = "bottom_bounce"
-    left_bounce = "left_bounce"
-    right_bounce = "right_bounce"
-
     top_bound = False
     right_bound = False
     left_bound = False
@@ -103,53 +98,44 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
     left_wet = False
     bottom_wet = False
 
-    digging = digging
-    swimming = swimming
-
+    #Check all the solid blocks for collisions
     for block in close_solid_blocks:
-        bounce_rect = player_rect.clip(block)
-        bounce_width = bounce_rect.width
-        bounce_height = bounce_rect.height
-
+        #Check whether a player is hitting something on the side
         if (player_rect_inf_top.colliderect(block)):
             top_bound = True
-            bounce_height = abs(bounce_rect.height)
-        if (player_rect_inf_bottom.colliderect(block)):
-            bottom_bound = True
-            bounce_height = abs(bounce_rect.height)*-1
         if (player_rect_inf_right.colliderect(block)):
             right_bound = True
-            bounce_width = abs(bounce_rect.width)
         if (player_rect_inf_left.colliderect(block)):
             left_bound = True
-            bounce_width = abs(bounce_rect.width)*-1
+        if (player_rect_inf_bottom.colliderect(block)):
+            bottom_bound = True
+        #If a player is hitting something just on the side, then adjust the bounce_book.
+        bounce_rect = player_rect.clip(block)
+        if bottom_bound and top_bound:
+            bounce_book['bounce_y'] = 0
+        elif top_bound and not bottom_bound:
+            bounce_book['bounce_y'] = -abs(bounce_rect.height)
+        elif bottom_bound and not top_bound:
+            bounce_book['bounce_y'] = abs(bounce_rect.height)
+        if right_bound and left_bound:
+            bounce_book['bounce_x'] = 0
+        elif right_bound and not left_bound:
+            bounce_book['bounce_x'] = -abs(bounce_rect.width)
+        elif left_bound and not right_bound:
+            bounce_book['bounce_x'] = abs(bounce_rect.width)
 
-        if player_rect.colliderect(block) and abs(bounce_width) < player_rect.width/2 and abs(bounce_height) < player_rect.height/2:
-            bouncing = True
-        elif player_rect.colliderect(block) and (abs(bounce_width) >= player_rect.width/2 or abs(bounce_height) >= player_rect.height/2):
+        #If a player is buried somewhat in a block, then dig. Otherwise, if they're just hitting a block, bounce.
+        #Definitely take another look at these conditionals
+        if player_rect.colliderect(block) and (abs(bounce_rect.width) >= player_rect.width/2 or abs(bounce_rect.height) >= player_rect.height/2):
             digging = True
-            bounce_list.clear
             bouncing = False
+        elif player_rect.colliderect(block) and abs(bounce_rect.width) < player_rect.width/2 and abs(bounce_rect.height) < player_rect.height/2 and (movement_x != 0 or movement_y != 0):
+            bouncing = True
         if not top_bound and not right_bound and not left_bound and not player_rect.colliderect(block):
             digging = False
-            bounce_list.clear
             bouncing = False
-    
-    if bounce_height > 0:
-        bounce_list.append(top_bounce)
-    elif bounce_height < 0:
-        if top_bounce not in bounce_list:
-            bounce_list.append(bottom_bounce)
-    if bounce_width > 0:
-        bounce_list.append(right_bounce)
-    elif bounce_width < 0:
-        if right_bounce not in bounce_list:
-            bounce_list.append(left_bounce)
-    if bounce_height == 0:
-        bounce_list[:] = [i for i in bounce_list if i != "top_bounce" and i != "bottom_bounce"]
-    if bounce_width == 0:
-        bounce_list[:] = [i for i in bounce_list if i != "right_bounce" and i != "left_bounce"]
 
+    #Check all liquid blocks for collisions
     for block in close_liquid_blocks:
         if (player_rect_inf_top.colliderect(block)):
             top_wet = True
@@ -178,25 +164,24 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
             breathing = True
         """
 
-    return top_bound,right_bound,bottom_bound,left_bound,bouncing,bounce_width,bounce_height,digging,swimming,top_wet
+    return top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
 
-def bounce(bounce_list,bounce_width,bounce_height,movement_x=None,movement_y=None):
-    #print(bounce_list)
-    movement_x = 0
-    movement_y = 0
-    top_bounce = "top_bounce"
-    bottom_bounce = "bottom_bounce"
-    left_bounce = "left_bounce"
-    right_bounce = "right_bounce"
-
-    if top_bounce in bounce_list:
-        movement_y = bounce_height
-    elif bottom_bounce in bounce_list:
-        movement_y = -bounce_height
-    if right_bounce in bounce_list:
-        movement_x = bounce_width
-    elif left_bounce in bounce_list:
-        movement_x = bounce_width
+def bounce(bounce_book,player_rect,movement_x=None,movement_y=None):
+    movement_x = movement_x
+    movement_y = movement_y
+    if movement_x != 0 and movement_y == 0:
+        if bounce_book['bounce_x'] != 0:
+            movement_x = bounce_book['bounce_x']
+        elif bounce_book['bounce_x'] == 0:
+            if bounce_book['bounce_y'] < player_rect.height/2:
+                movement_y = -bounce_book['bounce_y']
+#    elif movement_x != 0 and movement_y != 0:
+    if movement_y != 0:
+        if bounce_book['bounce_y'] != 0:
+            movement_y = bounce_book['bounce_y']
+        elif bounce_book['bounce_y'] == 0:
+            if bounce_book['bounce_x'] < player_rect.width/2:
+                movement_x = bounce_book['bounce_x']
     return movement_x,movement_y
     
 def dig(top_bound,right_bound,bottom_bound,left_bound,run_strength,keypressed=None,movement_x=None,movement_y=None):
@@ -273,19 +258,18 @@ def fly(top_bound,right_bound,bottom_bound,left_bound,fly_strength,fly_endurance
     if not bottom_bound and not movement_y < -fly_strength:
         movement_y -= 5
     elif bottom_bound:
-        #To fix the glitch that lets you float on water in the sky, I need to retrieve the type of the block that's being collided with here. I don't know how, though.
         movement_y = 0
     if keypressed[K_LEFT]:
         if not left_bound and not movement_x < fly_strength*-1:
-            movement_x += int(-8)
+            movement_x += -6
     if keypressed[K_RIGHT]:
         if not right_bound and not movement_x > fly_strength:
-            movement_x += int(8)
+            movement_x += 6
         
     if 0 < fly_time <= fly_endurance:
         if keypressed[K_UP]:
             if not top_bound and not movement_y > fly_strength:
-                movement_y += 8
+                movement_y += 6
                 fly_time -= 1
     return movement_x,movement_y,fly_time
 
@@ -337,18 +321,24 @@ while running:
 
     #THIS IS THE NEXT THING I NEED TO FIX! I have to make it so that, instead of bounds checking only the solid block_rects, it checks both solid and liquids.
     #Determine the player's current movement type.
-    bounds = check_bounds(player_1.rect,(player_1.rect.inflate(10,10)),player_1.rect_inf_top,player_1.rect_inf_right,player_1.rect_inf_bottom,player_1.rect_inf_left,block_rects,player_1.bounce_list,player_1.bouncing,player_1.digging,player_1.swimming)
-    #bounds returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,bounce_width,bounce_height,digging,swimming
+    bounds = check_bounds(player_1.rect,(player_1.rect.inflate(10,10)),player_1.rect_inf_top,player_1.rect_inf_right,player_1.rect_inf_bottom,player_1.rect_inf_left,block_rects,player_1.bounce_book,player_1.bouncing,player_1.digging,player_1.swimming,movement_x,movement_y)
+    #check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming):
+    #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
     if bounds[4]:
-        movement_x,movement_y = bounce(player_1.bounce_list,bounds[5],bounds[6],movement_x,movement_y)
-    elif bounds[7]:
+        movement_x,movement_y = bounce(player_1.bounce_book,player_1.rect,movement_x,movement_y)
+        print(f'bouncing,bounce_book:{player_1.bounce_book}')
+    elif bounds[5]:
         movement_x,movement_y = dig(bounds[0],bounds[1],bounds[2],bounds[3],player_1.run_strength,keypressed,movement_x,movement_y)
-    elif bounds[8]:
-        movement_x,movement_y = swim(bounds[9],movement_x,movement_y,keypressed)
+        print('digging')
+    elif bounds[6]:
+        movement_x,movement_y = swim(bounds[7],movement_x,movement_y,keypressed)
+        print('swimming')
     elif bounds[2]:    
         movement_x,movement_y,player_1.fly_time = run(bounds[1],bounds[2],bounds[3],player_1.run_strength,player_1.fly_endurance,player_1.fly_time,keypressed)
+        print('running')
     else:
         movement_x,movement_y,player_1.fly_time = fly(bounds[0],bounds[1],bounds[2],bounds[3],player_1.fly_strength,player_1.fly_endurance,player_1.fly_time,movement_x,movement_y,keypressed)
+        print('flying')
     wod[0] += movement_x
     wod[1] += movement_y
                         

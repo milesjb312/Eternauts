@@ -148,8 +148,6 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
     elif left_chunk_array is not None:
         chunk_book[(cwod[0]-pixel_total, cwod[1])] = left_chunk_array.copy()
 
-#NEXT STEP: Make alternate block types.
-#I believe the most computationally expensive tool I use is the block_rect list.
 def make_chunks(wod,display):
     det_adj_cwods(wod)
     block_rects = {}
@@ -175,13 +173,7 @@ def make_chunks(wod,display):
                 elif block_value == 4:
                     block_rects['gas'].append(block_rect)
 
-    return block_rects#Connects to the first line in the #Chunks section of the solution. Don't return the other block_rects here unless you intend to change the calling code in the solution.
-
-#draw the chunks that were created
-#I need to change this one so that liquid, solid, and gas blocks are made differently
-#def draw_chunks(block_rects,display):
-#    for block_rect in block_rects:
-#        pygame.draw.rect(display, (10,255,30),block_rect)
+    return block_rects
 
 def draw_chunks(block_rects,display):
     for block_type, block_rects_list in block_rects.items():
