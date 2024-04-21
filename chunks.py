@@ -130,9 +130,30 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
         if chunk_type != 2:
             chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
         else:
+            chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
+            water_lat = round(max(min(numpy.random.normal(1,chunk_size/2),chunk_size-1),0))
+            water_dep = chunk_size - 1 - round(max(min(numpy.random.normal(1,(chunk_size-1)/2),chunk_size-1),0))
+            water_lon = round(max(min(numpy.random.normal(1,chunk_size/2),chunk_size-1),0))
+            print(f'water_depth:{water_lat}')
             for row in range(chunk_size):
-                for column in range(chunk_size):
-                    chunk_array[row,column] = 3
+                if row < water_lat:
+                    for column in range(chunk_size):
+                        chunk_array[row,column] = 2
+                elif row >= water_lat and water_dep > 0:
+                    water_dep-=1
+                    water_len = chunk_size - 1 - round(max(min(numpy.random.normal(1,(chunk_size-1)/2),chunk_size-1),0))
+                    for column in range(chunk_size):
+                        if column < water_lon:
+                            chunk_array[row,column] = 2
+                        elif column >= water_lon and water_len > 0:
+                            water_len-=1
+                            chunk_array[row,column] = 3
+#                        elif column >= water_lon and water_len == 0:
+#                            for column in range(chunk_size):
+#                                chunk_array[row,column] = 2
+                elif row >= water_lat and water_dep ==0:
+                    for column in range(chunk_size):
+                        chunk_array[row,column] = 2              
         chunk_book[cwod] = chunk_array
         
 
