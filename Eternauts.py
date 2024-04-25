@@ -79,8 +79,8 @@ which will run whichever movement function should currently be active.
 #This is like the biggest physics driver of the game, to be honest.
 def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming,movement_x,movement_y):
     #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
-    close_solid_blocks = [block for block in all_blocks['solid'] if player_rect_inf.colliderect(block)]
-    close_liquid_blocks = [block for block in all_blocks['liquid'] if player_rect_inf.colliderect(block)]
+    close_solid_blocks = [block for block in all_blocks['solid']['all'] if player_rect_inf.colliderect(block)]
+    close_liquid_blocks = [block for block in all_blocks['liquid']['all'] if player_rect_inf.colliderect(block)]
     #close_gas_blocks = [block for block in all_blocks['gas'] if player_rect_inf.colliderect(block)]
     #colliding_blocks = []
 

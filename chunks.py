@@ -80,17 +80,18 @@ def det_adj_cwods(wod):
 def gen_chunk(cwod): #generate a chunk, given its top left pixel location
     chunk_lon = cwod[0]
     chunk_lat = cwod[1]
-    chunk_array = numpy.random.poisson(.005,size=(16,16))
+    chunk_array = numpy.random.poisson(.005,size=(chunk_size,chunk_size))
     right_chunk_array = None
     left_chunk_array = None
-    if cwod not in chunk_book and chunk_lat<=0:
-        right_chunk_array = numpy.zeros((chunk_size,chunk_size))
-        left_chunk_array = numpy.zeros((chunk_size,chunk_size))
-        for row in range(chunk_size):
-            for column in range(chunk_size):
-                if chunk_array[row,column] == 1:
-                    #Following is the generation code for ground-level chunks:
-                    if chunk_lat==0:
+    if cwod not in chunk_book:
+        if chunk_lat == 0:
+            right_chunk_array = numpy.zeros((chunk_size,chunk_size))
+            left_chunk_array = numpy.zeros((chunk_size,chunk_size))
+            chunk_type = numpy.random.random_integers(0,10)
+            for row in range(chunk_size):
+                for column in range(chunk_size):
+                    if chunk_array[row,column] == 1:
+                        #Following is the generation code for ground-level chunks:
                         for rows_rem in range(chunk_size): #this calculates how far out a hill should be generated
                             right_row = row + rows_rem #this is how far to the right the hill should extend
                             right_column = column + rows_rem #this is how far down the hill should extend
@@ -117,55 +118,61 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
                                     left_chunk_array[left_row,left_column] = 2
                                     for height in range(left_height):
                                         left_chunk_array[left_row+height,left_column] = 2
-                    #Following is the generation code for sky chunks:
-                    elif chunk_lat < 0 and chunk_lat > -10000:
-                        chunk_array[row,column] = 3
-
-        chunk_book[cwod] = chunk_array
-        
-    elif cwod not in chunk_book and chunk_lat>0:
-        chunk_type = numpy.random.poisson(.99)
-        if chunk_type != 2:
-            chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
-        else:
-            #right_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            #left_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            for row in range(chunk_size):
-                for column in range(chunk_size):
-                    if chunk_array[row,column] == 1:
-                        chunk_array[row,column] = 3
-                        water_len = numpy.random.random_integers(0,chunk_size/4)
-                        if row <= column:
-                            for row_rem_above in range(row+1):
-                                if column+water_len <= chunk_size-1 and column-water_len >=0:
-                                    water_len+=1
-                                else:
-                                    break
-                                for column_rem_right in range(water_len):
-                                    chunk_array[row-row_rem_above,column+column_rem_right] = 3
-                                for column_rem_left in range(water_len):
-                                    chunk_array[row-row_rem_above,column-column_rem_left] = 3
-
-                        else:
-                            for row_rem_above in range(row+1):
-                                if column+water_len <= chunk_size-1 and column-water_len >=0:
-                                    water_len+=1
-                                else:
-                                    break
-                                for column_rem_right in range(water_len):
-                                    chunk_array[row-row_rem_above,column+column_rem_right] = 3
-                                for column_rem_left in range(water_len):
-                                    chunk_array[row-row_rem_above,column-column_rem_left] = 3
             
-
+        #Following is the generation code for sky chunks:
+        elif chunk_lat < 0 and chunk_lat > -10000:
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] != 3:
-                        chunk_array[row,column] = 2
+                    chunk_array[row,column] = 1
+            
+        elif chunk_lat > 0:
+            chunk_type = numpy.random.random_integers(0,3)
+            if chunk_type == 0:
+                chunk_array = numpy.array([(numpy.full((chunk_size),2)) for _ in range(chunk_size)])
+            elif chunk_type == 1:
+                #right_chunk_array = numpy.zeros((chunk_size,chunk_size))
+                #left_chunk_array = numpy.zeros((chunk_size,chunk_size))
+                for row in range(chunk_size):
+                    for column in range(chunk_size):
+                        if chunk_array[row,column] == 1:
+                            chunk_array[row,column] = 3
+                            water_len = numpy.random.random_integers(0,chunk_size/4)
+                            if row <= column:
+                                for row_rem_above in range(row+1):
+                                    if column+water_len <= chunk_size-1 and column-water_len >=0:
+                                        water_len+=1
+                                    else:
+                                        break
+                                    for column_rem_right in range(water_len):
+                                        chunk_array[row-row_rem_above,column+column_rem_right] = 3
+                                    for column_rem_left in range(water_len):
+                                        chunk_array[row-row_rem_above,column-column_rem_left] = 3
+
+                            else:
+                                for row_rem_above in range(row+1):
+                                    if column+water_len <= chunk_size-1 and column-water_len >=0:
+                                        water_len+=1
+                                    else:
+                                        break
+                                    for column_rem_right in range(water_len):
+                                        chunk_array[row-row_rem_above,column+column_rem_right] = 3
+                                    for column_rem_left in range(water_len):
+                                        chunk_array[row-row_rem_above,column-column_rem_left] = 3
+                
+                for row in range(chunk_size):
+                    for column in range(chunk_size):
+                        if chunk_array[row,column] != 3:
+                            chunk_array[row,column] = 2
+                
+            else:
+                chunk_array = numpy.random.random_integers(0,10,size=(chunk_size,chunk_size))
+                for row in range(chunk_size):
+                    for column in range(chunk_size):
+                        if chunk_array[row,column] != 5:
+                            chunk_array[row,column] = 2
+
         print(f'{chunk_array}')
         chunk_book[cwod] = chunk_array
-        
-        
 
     if right_chunk_array is not None and (cwod[0]+pixel_total,cwod[1]) in chunk_book:
         chunk = chunk_book[(cwod[0]+pixel_total, cwod[1])]
@@ -182,9 +189,9 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
 def make_chunks(wod,display):
     det_adj_cwods(wod)
     block_rects = {}
-    block_rects['solid'] = []
-    block_rects['liquid'] = []
-    block_rects['gas'] = []    
+    block_rects['solid'] = {'all':[],'oneium':[],'twoium':[]}
+    block_rects['liquid'] = {'all':[]}
+    block_rects['gas'] = {'all':[]}
     for adj_cwod in range(len(adj_cwods)):
         gen_chunk(adj_cwods[adj_cwod]) #create chunk arrays for all empty chunks within the adjacent range
         chunk_array = chunk_book[adj_cwods[adj_cwod]] #access each chunk_array within the chunk_book dictionary
@@ -197,23 +204,24 @@ def make_chunks(wod,display):
                 block_loc = (int(cloc[0] + column * block_size),int(cloc[1] + row * block_size))
                 block_rect = pygame.Rect(block_loc[0],block_loc[1],block_size,block_size)
 
-                if block_value == 2:
-                    block_rects['solid'].append(block_rect)
+                if block_value in [2,5]:
+                    block_rects['solid']['all'].append(block_rect)
+                    if block_value == 2:
+                        block_rects['solid']['oneium'].append(block_rect)
+                    else:
+                        block_rects['solid']['twoium'].append(block_rect)
                 elif block_value == 3:
-                    block_rects['liquid'].append(block_rect)
+                    block_rects['liquid']['all'].append(block_rect)
                 elif block_value == 4:
-                    block_rects['gas'].append(block_rect)
-
+                    block_rects['gas']['all'].append(block_rect)
     return block_rects
 
 def draw_chunks(block_rects,display):
-    for block_type, block_rects_list in block_rects.items():
-        if block_type == 'solid':
-            for block_rect in block_rects_list:
-                pygame.draw.rect(display, (10,255,30),block_rect)
-        if block_type == 'liquid':
-            for block_rect in block_rects_list:
-                pygame.draw.rect(display, (10,30,255),block_rect)
-        if block_type == 'gas':
-            for block_rect in block_rects_list:
-                pygame.draw.rect(display, (10,20,10),block_rect)
+    for block_rect in block_rects['solid']['oneium']:
+        pygame.draw.rect(display, (10,255,30),block_rect)
+    for block_rect in block_rects['solid']['twoium']:
+        pygame.draw.rect(display, (100,120,120),block_rect)
+    for block_rect in block_rects['liquid']['all']:
+        pygame.draw.rect(display, (10,30,255),block_rect)
+    for block_rect in block_rects['gas']['all']:
+        pygame.draw.rect(display, (10,20,10),block_rect)
