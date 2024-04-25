@@ -326,19 +326,19 @@ while running:
     #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
     if bounds[4]:
         movement_x,movement_y = bounce(player_1.bounce_book,player_1.rect,movement_x,movement_y)
-        print(f'bouncing,bounce_book:{player_1.bounce_book}')
+        #print(f'bouncing,bounce_book:{player_1.bounce_book}')
     elif bounds[5]:
         movement_x,movement_y = dig(bounds[0],bounds[1],bounds[2],bounds[3],player_1.run_strength,keypressed,movement_x,movement_y)
-        print('digging')
+        #print('digging')
     elif bounds[6]:
         movement_x,movement_y = swim(bounds[7],movement_x,movement_y,keypressed)
-        print('swimming')
+        #print('swimming')
     elif bounds[2]:    
         movement_x,movement_y,player_1.fly_time = run(bounds[1],bounds[2],bounds[3],player_1.run_strength,player_1.fly_endurance,player_1.fly_time,keypressed)
-        print('running')
+        #print('running')
     else:
         movement_x,movement_y,player_1.fly_time = fly(bounds[0],bounds[1],bounds[2],bounds[3],player_1.fly_strength,player_1.fly_endurance,player_1.fly_time,movement_x,movement_y,keypressed)
-        print('flying')
+        #print('flying')
     wod[0] += movement_x
     wod[1] += movement_y
                         
