@@ -21,7 +21,7 @@ wod_font = font.SysFont(None,font_size)
 class player(pygame.sprite.Sprite):
     def __init__(self,spawn_loc_x,spawn_loc_y):
         super(player,self).__init__()
-        self.Surface = pygame.Surface((30,30))
+        self.Surface = pygame.Surface((chunks.block_size,chunks.block_size))
         self.Surface.fill((255,255,255))
         self.rect = self.Surface.get_rect()
         self.rect = self.Surface.get_rect()
@@ -81,7 +81,7 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
     #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
     close_solid_blocks = [block for block in all_blocks['solid']['all'] if player_rect_inf.colliderect(block)]
     close_liquid_blocks = [block for block in all_blocks['liquid']['all'] if player_rect_inf.colliderect(block)]
-    #close_gas_blocks = [block for block in all_blocks['gas'] if player_rect_inf.colliderect(block)]
+    close_gas_blocks = [block for block in all_blocks['gas']['all'] if player_rect_inf.colliderect(block)]
     #colliding_blocks = []
 
     #initial values
