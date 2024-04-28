@@ -80,49 +80,58 @@ def det_adj_cwods(wod):
 def gen_chunk(cwod): #generate a chunk, given its top left pixel location
     chunk_lon = cwod[0]
     chunk_lat = cwod[1]
-    chunk_array = numpy.random.random_integers(0,chunk_size*7,size=(chunk_size,chunk_size))
-    right_chunk_array = None
-    left_chunk_array = None
+    chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
+    right_chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
+    left_chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
+    right_chunk_updated = False
+    left_chunk_updated = False
     if cwod not in chunk_book:
         if chunk_lat == 0:
-            #chunk_array = numpy.random.poisson(0.005,size=(chunk_size,chunk_size))
-            right_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            left_chunk_array = numpy.zeros((chunk_size,chunk_size))
+            temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
+            right_temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
+            left_temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
             #chunk_type = numpy.random.random_integers(0,10)
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] != 1:
+                    if chunk_array[row,column] == 0:
+                        chunk_array[row,column] = 1
+                        plateu_len = numpy.random.random_integers(0,chunk_size/8)
+                        plateu_len_inc = 0
+                        for row_rem_below in range(chunk_size-row):
+                            plateu_len = plateu_len + plateu_len_inc
+                            plateu_len_inc = 0
+                            for column_rem_right in range(plateu_len):
+                                if column+column_rem_right <= chunk_size-1:
+                                    temp_chunk_array[row+row_rem_below,column+column_rem_right] = 1
+                                    plateu_len_inc = 1                                    
+                                else:
+                                    right_temp_chunk_array[row+row_rem_below,column+column_rem_right-chunk_size] = 1
+                                    plateu_len_inc = 1
+                            for column_rem_left in range(plateu_len):
+                                if column-column_rem_left >= 0:
+                                    temp_chunk_array[row+row_rem_below,column-column_rem_left] = 1
+                                    plateu_len_inc = 1
+                                else:
+                                    left_temp_chunk_array[row+row_rem_below,column-column_rem_left+chunk_size] = 1
+                                    plateu_len_inc = 1
+
+            for row in range(chunk_size):
+                for column in range(chunk_size):
+                    if temp_chunk_array[row,column] == 0:
                         chunk_array[row,column] = 0
-                    elif chunk_array[row,column] == 1:
-                        #Following is the generation code for ground-level chunks:
-                        #I need to fix it so that the hills can be generated with more than just oneium in them.
-                        for rows_rem in range(chunk_size): #this calculates how far out a hill should be generated
-                            right_row = row + rows_rem #this is how far to the right the hill should extend
-                            right_column = column + rows_rem #this is how far down the hill should extend
-                            right_height = chunk_size-right_row
-                            if right_row < chunk_size:
-                                if 0 < right_column < chunk_size:
-                                    chunk_array[right_row,right_column] = 1
-                                    for height in range(right_height):
-                                        chunk_array[right_row+height,right_column] = 1
-                                elif right_column >= chunk_size:
-                                    right_chunk_array[right_row,right_column-chunk_size] = 1
-                                    for height in range(right_height):
-                                        right_chunk_array[right_row-chunk_size+height,right_column-chunk_size] = 1
-                        for rows_rem in range(chunk_size):
-                            left_row = row + rows_rem
-                            left_column = column - rows_rem
-                            left_height = chunk_size - left_row
-                            if left_row < chunk_size:
-                                if 0 <= left_column < chunk_size:
-                                    chunk_array[left_row,left_column] = 1
-                                    for height in range(left_height):
-                                        chunk_array[left_row+height,left_column] = 1
-                                elif left_column < 0:
-                                    left_chunk_array[left_row,left_column] = 1
-                                    for height in range(left_height):
-                                        left_chunk_array[left_row+height,left_column] = 1
-            
+                    if right_temp_chunk_array[row,column] == 0:
+                        right_chunk_array[row,column] = 0
+                        right_chunk_updated = True
+                    if right_chunk_array[row,column] not in [0,1,2,3]:
+                        right_chunk_array[row,column] = 1
+                    if left_temp_chunk_array[row,column] == 0:
+                        left_chunk_array[row,column] = 0
+                        left_chunk_updated = True
+                    if left_chunk_array[row,column] not in [0,1,2,3]:
+                        left_chunk_array[row,column] = 1
+            print(f'right_temp_chunk_array: {right_temp_chunk_array}')
+            print(f'right_chunk_array: {right_chunk_array}')
+            print(f'right_chunk_updated: {right_chunk_updated}')
         #Following is the generation code for sky chunks:
         elif chunk_lat < 0 and chunk_lat > -10000:
             for row in range(chunk_size):
@@ -134,8 +143,6 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
             if chunk_type == 0:
                 pass
             elif chunk_type == 1:
-                #right_chunk_array = numpy.zeros((chunk_size,chunk_size))
-                #left_chunk_array = numpy.zeros((chunk_size,chunk_size))
                 for row in range(chunk_size):
                     for column in range(chunk_size):
                         if chunk_array[row,column] == 1:
@@ -161,7 +168,7 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
                                         chunk_array[row-row_rem_above,column+column_rem_right] = 3
                                     for column_rem_left in range(water_len):
                                         chunk_array[row-row_rem_above,column-column_rem_left] = 3
-        if chunk_lat <=0:
+        if chunk_lat <0:
             for row in range(chunk_size):
                 for column in range(chunk_size):
                     if chunk_array[row,column] not in [0,1,2,3]:
@@ -169,21 +176,21 @@ def gen_chunk(cwod): #generate a chunk, given its top left pixel location
         else:
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] not in [1,2,3]:
+                    if chunk_array[row,column] not in [0,1,2,3]:
                         chunk_array[row,column] = 1
-        print(f'{chunk_array}')
+
         chunk_book[cwod] = chunk_array
 
-    if right_chunk_array is not None and (cwod[0]+pixel_total,cwod[1]) in chunk_book:
+    if right_chunk_updated and (cwod[0]+pixel_total,cwod[1]) in chunk_book:
         chunk = chunk_book[(cwod[0]+pixel_total, cwod[1])]
-        numpy.copyto(chunk, right_chunk_array, where=(right_chunk_array > 0))
-    elif right_chunk_array is not None:
+        numpy.copyto(chunk, right_chunk_array, where=(right_chunk_array > 0)) 
+    elif right_chunk_updated:
         chunk_book[(cwod[0]+pixel_total, cwod[1])] = right_chunk_array.copy()
 
-    if left_chunk_array is not None and (cwod[0]-pixel_total,cwod[1]) in chunk_book:
+    if left_chunk_updated and (cwod[0]-pixel_total,cwod[1]) in chunk_book:
         chunk = chunk_book[(cwod[0]-pixel_total, cwod[1])]
-        numpy.copyto(chunk, left_chunk_array, where=(left_chunk_array > 0))
-    elif left_chunk_array is not None:
+        numpy.copyto(chunk, left_chunk_array, where=(left_chunk_array > 0)) 
+    elif left_chunk_updated:
         chunk_book[(cwod[0]-pixel_total, cwod[1])] = left_chunk_array.copy()
 
 def make_chunks(wod,display):
