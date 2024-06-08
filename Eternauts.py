@@ -21,11 +21,10 @@ wod_font = font.SysFont(None,font_size)
 class player(pygame.sprite.Sprite):
     def __init__(self,spawn_loc_x,spawn_loc_y):
         super(player,self).__init__()
-        self.Surface = pygame.Surface((chunks.block_size,chunks.block_size))
-        self.Surface.fill((255,255,255))
-        self.rect = self.Surface.get_rect()
-        self.rect = self.Surface.get_rect()
-        self.rect.center = (spawn_loc_x,spawn_loc_y)
+        self.color = ((255,255,255))
+        self.rect1 = pygame.Rect(spawn_loc_x-chunks.block_size*0.5,spawn_loc_y-chunks.block_size*0.5,chunks.block_size,chunks.block_size)
+        self.rect2 = pygame.Rect(spawn_loc_x-chunks.block_size*1.5,spawn_loc_y-chunks.block_size*0.5,chunks.block_size,chunks.block_size)
+        self.rect3 = pygame.Rect(spawn_loc_x+chunks.block_size*0.5,spawn_loc_y-chunks.block_size*0.5,chunks.block_size,chunks.block_size)
         self.fly_strength = chunks.block_size*2/3
         self.fly_endurance = chunks.block_size/3
         self.fly_time = self.fly_endurance
@@ -34,22 +33,23 @@ class player(pygame.sprite.Sprite):
         self.digging = False
         self.swimming = False
         self.run_strength = chunks.block_size/2
+        #The following variables aren't used yet, but should be eventually
+        self.magic_reach = self.rect1.x*2,self.rect1.y*2
 
     def update_collision_rects(self):
-        self.rect_inf_top = pygame.Rect(self.rect.left,self.rect.top-self.rect.height/10,self.rect.width,self.rect.height/10)
-        self.rect_inf_right = pygame.Rect(self.rect.right,self.rect.top,self.rect.width/10,self.rect.height)
-        self.rect_inf_bottom = pygame.Rect(self.rect.left,self.rect.bottom,self.rect.width,self.rect.height/10)
-        self.rect_inf_left = pygame.Rect(self.rect.left-self.rect.width/10,self.rect.top,self.rect.width/10,self.rect.height)  
+        self.rect_inf_top = pygame.Rect(self.rect1.left,self.rect1.top-self.rect1.height/10,self.rect1.width,self.rect1.height/10)
+        self.rect_inf_right = pygame.Rect(self.rect1.right,self.rect1.top,self.rect1.width/10,self.rect1.height)
+        self.rect_inf_bottom = pygame.Rect(self.rect1.left,self.rect1.bottom,self.rect1.width,self.rect1.height/10)
+        self.rect_inf_left = pygame.Rect(self.rect1.left-self.rect1.width/10,self.rect1.top,self.rect1.width/10,self.rect1.height)  
 
     def draw(self, display):
-        display.blit(player_1.Surface, player_1.rect)
-        pygame.draw.rect(display, (200,0,0),player_1.rect_inf_top)
-        pygame.draw.rect(display, (200,0,0),player_1.rect_inf_right)
-        pygame.draw.rect(display, (200,0,0),player_1.rect_inf_bottom)
-        pygame.draw.rect(display, (200,0,0),player_1.rect_inf_left)
+        pygame.draw.rect(display,player_1.color,player_1.rect1)
+        pygame.draw.rect(display,player_1.color,player_1.rect2)
+        pygame.draw.rect(display,player_1.color,player_1.rect3)
 
 #Render HUD
 def render_hud():
+    #wod stands for world origin distance
     wod_text = f'WOD:{wod[0],wod[1]}'
     wod_text_surface = wod_font.render(wod_text,True,(255,255,255))
     hud_surface = pygame.Surface((wod_text_surface.get_width(),wod_text_surface.get_height()))
@@ -69,13 +69,12 @@ clock = pygame.time.Clock()
 #Movement
 '''
 Movement works first by establishing what bounds are around the player. Then, based on which bounds are currently being occupied,
-the movement state of the player is determined, between swimming, running, or flying. That state is passed to the main game loop,
+the movement state of the player is determined, between bouncing, swimming, running, or flying. That state is passed to the main game loop,
 which will run whichever movement function should currently be active.
 '''
 #This allows you to update the wod (standing for world origin distance), making it appear as though the player is moving.
 #All objects' locations are defined based on their own wod.
 
-#THIS IS WHERE I NEED TO WORK NEXT TO MAKE IT SO THAT THE GAME CHECKS WHETHER YOU'RE RUNNING INTO SOLIDS OR LIQUIDS.
 #This is like the biggest physics driver of the game, to be honest.
 def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming,movement_x,movement_y):
     #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
@@ -100,7 +99,6 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
 
     #Check all the solid blocks for collisions
     for block in close_solid_blocks:
-        #Check whether a player is hitting something on the side
         if (player_rect_inf_top.colliderect(block)):
             top_bound = True
         if (player_rect_inf_right.colliderect(block)):
@@ -164,7 +162,7 @@ def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf
             breathing = True
         """
 
-    return top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
+    return top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet,close_solid_blocks
 
 def bounce(bounce_book,player_rect,movement_x=None,movement_y=None):
     movement_x = movement_x
@@ -273,13 +271,28 @@ def fly(top_bound,right_bound,bottom_bound,left_bound,fly_strength,fly_endurance
                 fly_time -= 1
     return movement_x,movement_y,fly_time
 
+"""
+#THIS PART OF THE CODE DOESN'T WORK YET
+def break_block(block_rects,block_loc):
+    #This part is TOUGH. I have to reverse engineer my block location generator.
+    break_block_loc = [wod[0] + block_loc[0],wod[1] + block_loc[1]]
+    for type,sub_type in block_rects.items():
+        for block_rects_list in sub_type.values():
+            for block_rect in block_rects_list:
+                if (block_rect.x,block_rect.y) == break_block_loc:
+                    block_rects[type[sub_type[block_rects_list]]].remove(block_rect)
+"""
+
 #Initializations:
 wod = [0,0] #world origin distance
-player_1 = player(screen_width//2,screen_height//2)
+player_1 = player(screen_width//2,screen_height//2) #By defining the player's spawn_loc this way, I get to make sure it always stays in the center of the screen.
 player_1.update_collision_rects()
 
 movement_x = 0
 movement_y = 0
+
+break_block_bool = False
+break_block_loc = [0,0]
 
 while running:
     #Chunks
@@ -293,9 +306,16 @@ while running:
             elif event.key == K_s:
                 #save_and_load.save()
                 pass
+            #This next line is just for play-testing
             elif event.key == K_p:
                 if (wod[0]//chunks.pixel_total*chunks.pixel_total,wod[1]//chunks.pixel_total*chunks.pixel_total) in chunks.chunk_book:
                     print(f'chunk_book[cwod]:{chunks.chunk_book[(wod[0]//chunks.pixel_total*chunks.pixel_total,-wod[1]//chunks.pixel_total*chunks.pixel_total)]}')
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            break_block_tup = pygame.mouse.get_pos()
+            break_block_bool = True
+            break_block_loc = [break_block_tup[0],break_block_tup[1]]
+            break_block_loc[0] = break_block_loc[0]//chunks.block_size*chunks.block_size
+            break_block_loc[1] = break_block_loc[1]//chunks.block_size*chunks.block_size
         elif event.type == QUIT:
             running = False
         
@@ -307,8 +327,8 @@ while running:
             wod[0] = old_wod[0] - (screen_width - old_screen_width) //2
             wod[1] = old_wod[1] + (screen_height - old_screen_height) //2
 
-            player_1.rect.centerx += (screen_width - old_screen_width) //2
-            player_1.rect.centery += (screen_height - old_screen_height) //2
+            player_1.rect1.centerx += (screen_width - old_screen_width) //2
+            player_1.rect1.centery += (screen_height - old_screen_height) //2
             player_1.update_collision_rects()
             
 
@@ -321,11 +341,11 @@ while running:
 
     #THIS IS THE NEXT THING I NEED TO FIX! I have to make it so that, instead of bounds checking only the solid block_rects, it checks both solid and liquids.
     #Determine the player's current movement type.
-    bounds = check_bounds(player_1.rect,(player_1.rect.inflate(10,10)),player_1.rect_inf_top,player_1.rect_inf_right,player_1.rect_inf_bottom,player_1.rect_inf_left,block_rects,player_1.bounce_book,player_1.bouncing,player_1.digging,player_1.swimming,movement_x,movement_y)
+    bounds = check_bounds(player_1.rect1,(player_1.rect1.inflate(10,10)),player_1.rect_inf_top,player_1.rect_inf_right,player_1.rect_inf_bottom,player_1.rect_inf_left,block_rects,player_1.bounce_book,player_1.bouncing,player_1.digging,player_1.swimming,movement_x,movement_y)
     #check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming):
     #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
     if bounds[4]:
-        movement_x,movement_y = bounce(player_1.bounce_book,player_1.rect,movement_x,movement_y)
+        movement_x,movement_y = bounce(player_1.bounce_book,player_1.rect1,movement_x,movement_y)
         #print(f'bouncing,bounce_book:{player_1.bounce_book}')
     elif bounds[5]:
         movement_x,movement_y = dig(bounds[0],bounds[1],bounds[2],bounds[3],player_1.run_strength,keypressed,movement_x,movement_y)
@@ -341,7 +361,10 @@ while running:
         #print('flying')
     wod[0] += movement_x
     wod[1] += movement_y
-                        
+
+    #if break_block_bool:
+    #    break_block(block_rects,break_block_loc)
+
     #People
     player_1.draw(display)
     

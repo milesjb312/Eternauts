@@ -77,113 +77,117 @@ def det_adj_cwods(wod):
     adj_cwods[54] = chunk_lon+4*pixel_total,chunk_lat+2*pixel_total
     adj_cwods[55] = chunk_lon+4*pixel_total,chunk_lat+3*pixel_total
     
-def gen_chunk(cwod): #generate a chunk, given its top left pixel location
-    chunk_lon = cwod[0]
+#MY NEXT STEP IS TO SWITCH THE NAMING SYSTEM HERE. I want to make it so that the temp_ prefix refers to chunks that are currently sampling randomly. The chunk_arrays will start as empty arrays that are then written into after the temp_chunk_arrays go through filtering methods. I think this will make the code more readable, and hopefully easier to debug.
+def gen_chunk(cwod): #generate a chunk, given its top left pixel location (I need to change it so that gas forms in blobs, some ores can be found appearing in veins, and the base element always gets placed instead of nothing.)
+    #chunk_lon = cwod[0]
     chunk_lat = cwod[1]
-    chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
-    right_chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
-    left_chunk_array = numpy.random.random_integers(0,chunk_size*10,size=(chunk_size,chunk_size))
+    temp_chunk_array = numpy.random.random_integers(0,numpy.random.random_integers(1,48)*10,size=(chunk_size,chunk_size)) #the 48 here is intended to represent the number of different elements (oneium, twoium, etc.) I want to have. These elements are randomly sampled, then filtered based on the latitude of the chunk, so that heavier elements don't show up too high in the world.
+    temp_right_chunk_array = numpy.random.random_integers(0,numpy.random.random_integers(1,48)*10,size=(chunk_size,chunk_size))
+    temp_left_chunk_array = numpy.random.random_integers(0,numpy.random.random_integers(1,48)*10,size=(chunk_size,chunk_size))
     right_chunk_updated = False
     left_chunk_updated = False
+    chunk_array = numpy.zeros((chunk_size,chunk_size))
+    right_chunk_array = numpy.zeros((chunk_size,chunk_size))
+    left_chunk_array = numpy.zeros((chunk_size,chunk_size))
+    biome_stability = 8 #This number allows a world to be built with varying biome randomness-stability. Higher numbers indicate higher biome stability, since a greater range is sampled, and only numbers attributed to a coded element can become chunks. All others default to the latitudinal gradient filter (explained below).
+
     if cwod not in chunk_book:
-        if chunk_lat == 0:
-            temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            right_temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            left_temp_chunk_array = numpy.zeros((chunk_size,chunk_size))
-            #chunk_type = numpy.random.random_integers(0,10)
+        if chunk_lat >= 0: #this conditional is used to keep the world separated between sky and ground
+            chunk_type = numpy.random.random_integers(0,4*biome_stability) #This ensures that some chunks on any latitude can be comprised of any element. It is the random longitudinal biome generator. The 3 should represent the number of elements that have been coded.
+            if chunk_type != 3: #currently this will always be called. Later, I'll make biomes.
+                chunk_base_element = max(1,min(4,chunk_lat//5000)) #This is the latitudinal gradient filter. Having every chunk totally unique is rather odd. But having no unique chunks is rather boring. It only gets called when the longitudinal biome generator picks a number outside a certain range determined by the biome_stability. Currently, for every 5000 pixels traveled, the chunk_base_element increases by one, though it can be no smaller than 1.
+            else:
+                chunk_base_element = chunk_type-1
+
+            #Hill generation
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] == 0:
-                        chunk_array[row,column] = 1
-                        plateu_len = numpy.random.random_integers(0,chunk_size/8)
+                    if temp_chunk_array[row,column] in [0,1]: #checking for 1 is arbitrary. It doesn't code for an element, so it's nice to have it act as a hill-seed. It also makes it so that, as more and heavier elements are sampled, the hill count should go down considerably, which sort of imitates the real world.
+                        #I don't understand why the following line puts random blocks all over the place, instead of just at the tip of each hill, but it does. The rest of the function works fine without it. But I'm leaving it in the code because one day I'd like to know the answer.
+                        #chunk_array[row,column] = 1
+                        plateu_len = numpy.random.random_integers(0,chunk_size/8) #This randomly samples for hill-heights based on how large the last plateu level should be, imagining that hills are made up of a stack of plateus.
                         plateu_len_inc = 0
+                        #The following code creates varying levels of plateus to create realistic hills.
                         for row_rem_below in range(chunk_size-row):
                             plateu_len = plateu_len + plateu_len_inc
                             plateu_len_inc = 0
                             for column_rem_right in range(plateu_len):
                                 if column+column_rem_right <= chunk_size-1:
-                                    temp_chunk_array[row+row_rem_below,column+column_rem_right] = 1
-                                    plateu_len_inc = 1                                    
-                                else:
-                                    right_temp_chunk_array[row+row_rem_below,column+column_rem_right-chunk_size] = 1
+                                    chunk_array[row+row_rem_below,column+column_rem_right] = chunk_base_element
                                     plateu_len_inc = 1
+                                else:
+                                    right_chunk_array[row+row_rem_below,column+column_rem_right-chunk_size] = chunk_base_element
+                                    plateu_len_inc = 1
+                                    right_chunk_updated = True
                             for column_rem_left in range(plateu_len):
                                 if column-column_rem_left >= 0:
-                                    temp_chunk_array[row+row_rem_below,column-column_rem_left] = 1
+                                    chunk_array[row+row_rem_below,column-column_rem_left] = chunk_base_element
                                     plateu_len_inc = 1
                                 else:
-                                    left_temp_chunk_array[row+row_rem_below,column-column_rem_left+chunk_size] = 1
+                                    left_chunk_array[row+row_rem_below,column-column_rem_left+chunk_size] = chunk_base_element
                                     plateu_len_inc = 1
+                                    left_chunk_updated = True
 
-            for row in range(chunk_size):
-                for column in range(chunk_size):
-                    if temp_chunk_array[row,column] == 0:
-                        chunk_array[row,column] = 0
-                    if right_temp_chunk_array[row,column] == 0:
-                        right_chunk_array[row,column] = 0
-                        right_chunk_updated = True
-                    if right_chunk_array[row,column] not in [0,1,2,3]:
-                        right_chunk_array[row,column] = 1
-                    if left_temp_chunk_array[row,column] == 0:
-                        left_chunk_array[row,column] = 0
-                        left_chunk_updated = True
-                    if left_chunk_array[row,column] not in [0,1,2,3]:
-                        left_chunk_array[row,column] = 1
-            print(f'right_temp_chunk_array: {right_temp_chunk_array}')
-            print(f'right_chunk_array: {right_chunk_array}')
-            print(f'right_chunk_updated: {right_chunk_updated}')
         #Following is the generation code for sky chunks:
         elif chunk_lat < 0 and chunk_lat > -10000:
             for row in range(chunk_size):
                 for column in range(chunk_size):
                     chunk_array[row,column] = 0
             
-        elif chunk_lat > 0:
-            chunk_type = numpy.random.random_integers(0,3)
-            if chunk_type == 0:
-                pass
-            elif chunk_type == 1:
-                for row in range(chunk_size):
-                    for column in range(chunk_size):
-                        if chunk_array[row,column] == 1:
-                            chunk_array[row,column] = 3
-                            water_len = numpy.random.random_integers(0,chunk_size/4)
-                            if row <= column:
-                                for row_rem_above in range(row+1):
-                                    if column+water_len <= chunk_size-1 and column-water_len >=0:
-                                        water_len+=1
-                                    else:
-                                        break
-                                    for column_rem_right in range(water_len):
-                                        chunk_array[row-row_rem_above,column+column_rem_right] = 3
-                                    for column_rem_left in range(water_len):
-                                        chunk_array[row-row_rem_above,column-column_rem_left] = 3
-                            else:
-                                for row_rem_above in range(row+1):
-                                    if column+water_len <= chunk_size-1 and column-water_len >=0:
-                                        water_len+=1
-                                    else:
-                                        break
-                                    for column_rem_right in range(water_len):
-                                        chunk_array[row-row_rem_above,column+column_rem_right] = 3
-                                    for column_rem_left in range(water_len):
-                                        chunk_array[row-row_rem_above,column-column_rem_left] = 3
-        if chunk_lat <0:
+        elif chunk_lat < -10000: #This will be for space chunks eventually.
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] not in [0,1,2,3]:
-                        chunk_array[row,column] = 1
-        else:
+                    if chunk_array[row,column] not in [0,1,2,3,4]:
+                        chunk_array[row,column] = 0
+
+        if chunk_lat > 0:
             for row in range(chunk_size):
                 for column in range(chunk_size):
-                    if chunk_array[row,column] not in [0,1,2,3]:
-                        chunk_array[row,column] = 1
+                    #Water generation
+                    if temp_chunk_array[row,column] == 3: #checking for 1 as a water-seed is also arbitrary. In reality, the chunk will be re-checked for randomness later on.
+                        temp_chunk_array[row,column] = 3
+                        chunk_array[row,column] = 3
+                        water_len = numpy.random.random_integers(0,chunk_size/4) #This randomly samples for hill-heights based on how large the last plateu level should be, imagining that hills are made up of a stack of plateus.
+                        water_len_dec = 0
+                        #The following code creates varying levels of water depth to create realistic pools.
+                        for row_rem_below in range(chunk_size-row):
+                            water_len = water_len - water_len_dec  #this is the line that says water gets smaller
+                            water_len_dec = 0
+                            for column_rem_right in range(water_len):
+                                if column+column_rem_right <= chunk_size-1:
+                                    chunk_array[row+row_rem_below,column+column_rem_right] = 3
+                                    water_len_dec = 1
+                                else:
+                                    right_chunk_array[row+row_rem_below,column+column_rem_right-chunk_size] = 3
+                                    water_len_dec = 1
+                                    right_chunk_updated = True
+                            for column_rem_left in range(water_len):
+                                if column-column_rem_left >= 0:
+                                    chunk_array[row+row_rem_below,column-column_rem_left] = 3
+                                    water_len_dec = 1
+                                else:
+                                    left_chunk_array[row+row_rem_below,column-column_rem_left+chunk_size] = 3
+                                    water_len_dec = 1
+                                    left_chunk_updated = True    
+                    #Eventually, instead of having all of this code, I want to have each element that shows up become a potential seed for a deposit, pocket, or layer.
+                    if chunk_array[row,column] == 0:
+                        chunk_array[row,column] = chunk_base_element
+                    if temp_chunk_array[row,column] in [1,2,4]:
+                        chunk_array[row,column] = temp_chunk_array[row,column]
+                    if right_chunk_array[row,column] == 0:
+                        right_chunk_array[row,column] = chunk_base_element
+                    if temp_right_chunk_array[row,column] in [1,2,4]:
+                        right_chunk_array[row,column] = temp_right_chunk_array[row,column]
+                    if left_chunk_array[row,column] == 0:
+                        left_chunk_array[row,column] = chunk_base_element
+                    if temp_left_chunk_array[row,column] in [1,2,4]:
+                        left_chunk_array[row,column] = temp_left_chunk_array[row,column]
 
         chunk_book[cwod] = chunk_array
 
     if right_chunk_updated and (cwod[0]+pixel_total,cwod[1]) in chunk_book:
         chunk = chunk_book[(cwod[0]+pixel_total, cwod[1])]
-        numpy.copyto(chunk, right_chunk_array, where=(right_chunk_array > 0)) 
+        numpy.copyto(chunk, right_chunk_array, where=(right_chunk_array > 0))
     elif right_chunk_updated:
         chunk_book[(cwod[0]+pixel_total, cwod[1])] = right_chunk_array.copy()
 
@@ -199,6 +203,7 @@ def make_chunks(wod,display):
     block_rects['solid'] = {'all':[],'oneium':[],'twoium':[]}
     block_rects['liquid'] = {'all':[]}
     block_rects['gas'] = {'all':[]}
+    #example of this construction: block_rects = {'solid':{'all':[<rect(0,0,30,30)>,...],'oneium':[<rect(0,0,30,30)>]},...}
     for adj_cwod in range(len(adj_cwods)):
         gen_chunk(adj_cwods[adj_cwod]) #create chunk arrays for all empty chunks within the adjacent range
         chunk_array = chunk_book[adj_cwods[adj_cwod]] #access each chunk_array within the chunk_book dictionary
@@ -231,4 +236,4 @@ def draw_chunks(block_rects,display):
     for block_rect in block_rects['liquid']['all']:
         pygame.draw.rect(display, (10,30,255),block_rect)
     for block_rect in block_rects['gas']['all']:
-        pygame.draw.rect(display, (10,10,10),block_rect)
+        pygame.draw.rect(display, (100,100,10),block_rect)
