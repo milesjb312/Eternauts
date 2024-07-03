@@ -5,7 +5,7 @@ import chunks
 pygame.init()
 
 #Input and Event Imports:
-from pygame.locals import VIDEORESIZE, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, KEYDOWN, QUIT, K_t, K_r, K_s, K_c, K_p
+from pygame.locals import VIDEORESIZE, K_UP, K_DOWN, K_LEFT, K_RIGHT, K_ESCAPE, KEYDOWN, QUIT, K_t, K_r, K_s, K_c, K_p, K_LSHIFT
 
 #Display Initialization
 pygame.display.set_caption("Eternauts Physics Engine 1.2")
@@ -17,40 +17,112 @@ font.init()
 font_size = 20
 wod_font = font.SysFont(None,font_size)
 
+#World
+gravity = 1
+
 #The player
 class player(pygame.sprite.Sprite):
     def __init__(self,spawn_loc_x,spawn_loc_y):
         super(player,self).__init__()
         self.color = ((255,255,255))
-        self.rects = []
-        self.rects.append(pygame.Rect(spawn_loc_x-chunks.block_size*0.5,spawn_loc_y-chunks.block_size*0.5,chunks.block_size,chunks.block_size))
-        self.rects.append(pygame.Rect(self.rects[0].centerx-chunks.block_size*1.5,self.rects[0].centery-chunks.block_size*0.5,chunks.block_size,chunks.block_size))
-        self.rects.append(pygame.Rect(self.rects[0].centerx+chunks.block_size*0.5,self.rects[0].centery-chunks.block_size*0.5,chunks.block_size,chunks.block_size))        
-        self.fly_strength = chunks.block_size*2/3
-        self.fly_endurance = chunks.block_size/3
-        self.fly_time = self.fly_endurance
-        self.bounce_book = {'bounce_x':0,'bounce_y':0}
-        self.bouncing = False
-        self.digging = False
-        self.swimming = False
+        self.joints = {'body':[spawn_loc_x-chunks.block_size*0.5,spawn_loc_y-chunks.block_size*0.5],
+                       'right_arm':[spawn_loc_x+chunks.block_size*0.5,spawn_loc_y-chunks.block_size*0.5],
+                       'left_arm':[spawn_loc_x-chunks.block_size*1.5,spawn_loc_y-chunks.block_size*0.5]}
+        #Each of the player's parts needs to bounce off things individually, but once that bounce gets too big, it should also affect the rest of the player's parts.
+        self.rects = {'body':pygame.Rect(self.joints['body'][0],self.joints['body'][1],chunks.block_size,chunks.block_size),
+                      'right_arm':pygame.Rect(self.joints['right_arm'][0],self.joints['right_arm'][1],chunks.block_size,chunks.block_size),
+                      'left_arm':pygame.Rect(self.joints['left_arm'][0],self.joints['left_arm'][1],chunks.block_size,chunks.block_size)}
         self.run_strength = chunks.block_size/2
-        #The following variables aren't used yet, but should be eventually
-        self.magic_reach = self.rects[0].x*2,self.rects[0].y*2
-
-    def update_collision_rects(self):
-        self.rect_inf_top = pygame.Rect(self.rects[0].left,self.rects[0].top-self.rects[0].height/10,self.rects[0].width,self.rects[0].height/10)
-        self.rect_inf_right = pygame.Rect(self.rects[0].right,self.rects[0].top,self.rects[0].width/10,self.rects[0].height)
-        self.rect_inf_bottom = pygame.Rect(self.rects[0].left,self.rects[0].bottom,self.rects[0].width,self.rects[0].height/10)
-        self.rect_inf_left = pygame.Rect(self.rects[0].left-self.rects[0].width/10,self.rects[0].top,self.rects[0].width/10,self.rects[0].height)  
+        self.fly_endurance = chunks.block_size*2
+        self.fly_strength = self.fly_endurance
+        self.flexibility = 3 #how far away a body part can be before starting to drag back into place.
+        self.magic_reach = self.rects['body'].x*2,self.rects['body'].y*2
 
     def draw(self, display):
-        for rect in self.rects:
-            pygame.draw.rect(display,player_1.color,rect)
+        for sr in self.rects: #sr stands for self_rect
+            pygame.draw.rect(display,player_1.color,self.rects[sr])
+
+    def move(self,keypressed,all_blocks,movement_x,movement_y):
+        run_speed = self.run_strength
+        fly_speed = self.fly_strength
+        lb = False
+        tb = False
+        rb = False
+        bb = False
+        #I need to come up with some clean collision framework. For one thing, the player will have multiple body parts, so each part has to react differently, and then they have to react as a whole as well.
+        #For another thing, the collisions have to make physical sense. Like if your momentum is going left and then you collide with something, your momentum should flip directions.
+        for sr in self.rects: 
+            srlb = pygame.Rect(self.rects[sr].left-1,self.rects[sr].top,1,self.rects[sr].height) #self_rect_left_boundary
+            srtb = pygame.Rect(self.rects[sr].left,self.rects[sr].top+1,self.rects[sr].width,1)
+            srrb = pygame.Rect(self.rects[sr].right,self.rects[sr].top,1,self.rects[sr].height)
+            srbb = pygame.Rect(self.rects[sr].left,self.rects[sr].bottom,self.rects[sr].width,1)
+            for block in all_blocks['solid']['all']:
+                #If the player isn't being accelerated by an outside force:
+                #Should I make the player incapable of movement for a short time after collisions? Probably not
+                #First, check what the player's rects are currently colliding with.
+                if srlb.colliderect(block):
+                    lb = True
+                if srrb.colliderect(block):
+                    rb = True
+                if srtb.colliderect(block):
+                    tb = True
+                if srbb.colliderect(block):
+                    bb = True
+                    #print(f'Ground block top: {block.top}, Self block bottom boundary: {srbb.bottom}')
+            #Second, if a player's rect is embedded, reduce its speed.
+            if (lb and rb) or (tb and bb):
+                run_speed = self.run_strength*0.25
+            if not bb:
+                self.fly_strength -= 1
+                print(f'fly_speed: {self.fly_strength}')
+            elif bb:
+                self.fly_strength = self.fly_endurance
+                #print(f'{lb,tb,rb,bb}')
+            #I'm not sure why, but you have to check the blocks again after the boundaries have been established, instead of immediately checking them against the same block that establishes the boundaries.            
+            for block in all_blocks['solid']['all']:
+                if srlb.colliderect(block):
+                    if block.right > srlb.left:
+                        movement_x = self.rects[sr].clip(block).width
+                if srrb.colliderect(block):
+                    if block.left < srrb.right:
+                        movement_x = -self.rects[sr].clip(block).width
+                if srtb.colliderect(block):
+                    if block.bottom < srtb.top:
+                        movement_y = -self.rects[sr].clip(block).height
+                if srbb.colliderect(block):
+                    if block.top < srbb.bottom:
+                        movement_y = self.rects[sr].clip(block).height
+                        #print(f'grounded 1: {self.rects[sr].clip(block).height}')
+
+        if not bb:
+            movement_x = movement_x*0.7
+            movement_y = movement_y*0.7
+        elif bb:
+            movement_x = movement_x*0.5
+            movement_y = movement_y*0.5
+
+        if keypressed[K_LEFT] and (not lb or keypressed[K_LSHIFT]):
+            if not bb:
+                movement_x += -run_speed
+            elif bb:
+                movement_x = -run_speed            
+        if keypressed[K_RIGHT] and (not rb or keypressed[K_LSHIFT]):
+            if not bb:
+                movement_x += run_speed
+            elif bb:
+                movement_x = run_speed
+        if keypressed[K_DOWN] and (not bb or keypressed[K_LSHIFT]):
+            movement_y = -run_speed
+        if keypressed[K_UP] and (not tb or keypressed[K_LSHIFT]) and fly_speed > 0:
+            movement_y = run_speed
+        elif (not keypressed[K_UP] and self.fly_strength <= 0) or not bb: #There's something wrong with this statement
+            movement_y = -run_speed
+        return movement_x,movement_y
 
 #Render HUD
 def render_hud():
     #wod stands for world origin distance
-    wod_text = f'WOD:{wod[0],wod[1]}'
+    wod_text = f'WOD:{round(wod[0]),round(wod[1])}'
     wod_text_surface = wod_font.render(wod_text,True,(255,255,255))
     hud_surface = pygame.Surface((wod_text_surface.get_width(),wod_text_surface.get_height()))
     hud_surface.fill((0,0,0))
@@ -58,218 +130,13 @@ def render_hud():
     return hud_surface
 
 #GAME ENGINE:
-#import save_and_load
-
-#TIME
-#This is just some code specific to pygame that allows you to manage a game easily.
+#pygame stuff...
 running = True
 clock = pygame.time.Clock()
 
-#SPACE
-#Movement
-'''
-Movement works first by establishing what bounds are around the player. Then, based on which bounds are currently being occupied,
-the movement state of the player is determined, between bouncing, swimming, running, or flying. That state is passed to the main game loop,
-which will run whichever movement function should currently be active.
-'''
 #This allows you to update the wod (standing for world origin distance), making it appear as though the player is moving.
 #All objects' locations are defined based on their own wod.
-
-#This is like the biggest physics driver of the game, to be honest.
-def check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming,movement_x,movement_y):
-    #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
-    close_solid_blocks = [block for block in all_blocks['solid']['all'] if player_rect_inf.colliderect(block)]
-    close_liquid_blocks = [block for block in all_blocks['liquid']['all'] if player_rect_inf.colliderect(block)]
-    close_gas_blocks = [block for block in all_blocks['gas']['all'] if player_rect_inf.colliderect(block)]
-    #colliding_blocks = []
-
-    #initial values
-    bouncing = bouncing
-    digging = digging
-    swimming = swimming
-    bounce_rect = None
-    top_bound = False
-    right_bound = False
-    left_bound = False
-    bottom_bound = False
-    top_wet = False
-    right_wet = False
-    left_wet = False
-    bottom_wet = False
-
-    #Check all the solid blocks for collisions
-    for block in close_solid_blocks:
-        if (player_rect_inf_top.colliderect(block)):
-            top_bound = True
-        if (player_rect_inf_right.colliderect(block)):
-            right_bound = True
-        if (player_rect_inf_left.colliderect(block)):
-            left_bound = True
-        if (player_rect_inf_bottom.colliderect(block)):
-            bottom_bound = True
-        #If a player is hitting something just on the side, then adjust the bounce_book.
-        bounce_rect = player_rect.clip(block)
-        if bottom_bound and top_bound:
-            bounce_book['bounce_y'] = 0
-        elif top_bound and not bottom_bound:
-            bounce_book['bounce_y'] = -abs(bounce_rect.height)
-        elif bottom_bound and not top_bound:
-            bounce_book['bounce_y'] = abs(bounce_rect.height)
-        if right_bound and left_bound:
-            bounce_book['bounce_x'] = 0
-        elif right_bound and not left_bound:
-            bounce_book['bounce_x'] = -abs(bounce_rect.width)
-        elif left_bound and not right_bound:
-            bounce_book['bounce_x'] = abs(bounce_rect.width)
-
-        #If a player is buried somewhat in a block, then dig. Otherwise, if they're just hitting a block, bounce.
-        #Definitely take another look at these conditionals
-        if player_rect.colliderect(block) and (abs(bounce_rect.width) >= player_rect.width/2 or abs(bounce_rect.height) >= player_rect.height/2):
-            digging = True
-            bouncing = False
-        elif player_rect.colliderect(block) and abs(bounce_rect.width) < player_rect.width/2 and abs(bounce_rect.height) < player_rect.height/2 and (movement_x != 0 or movement_y != 0):
-            bouncing = True
-        if not top_bound and not right_bound and not left_bound and not player_rect.colliderect(block):
-            digging = False
-            bouncing = False
-
-    #Check all liquid blocks for collisions
-    for block in close_liquid_blocks:
-        if (player_rect_inf_top.colliderect(block)):
-            top_wet = True
-        if (player_rect_inf_bottom.colliderect(block)):
-            bottom_wet = True
-        if (player_rect_inf_right.colliderect(block)):
-            right_wet = True
-        if (player_rect_inf_left.colliderect(block)):
-            left_wet = True
-        if player_rect.colliderect(block) or (top_wet and right_wet) or (top_wet and left_wet) or (bottom_wet and right_wet) or (bottom_wet and left_wet):
-            swimming = True
-        if not top_wet and not right_wet and not left_wet and not player_rect.colliderect(block):
-            swimming = False
-
-        """
-    for block in close_gas_blocks:
-        if (player_rect_inf_top.colliderect(block)):
-            top_bound = True
-        if (player_rect_inf_bottom.colliderect(block)):
-            bottom_bound = True
-        if (player_rect_inf_right.colliderect(block)):
-            right_bound = True
-        if (player_rect_inf_left.colliderect(block)):
-            left_bound = True
-        if player_rect.colliderect(block) or (top_bound and right_bound) or (top_bound and left_bound) or (bottom_bound and right_bound) or (bottom_bound and left_bound):
-            breathing = True
-        """
-
-    return top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet,close_solid_blocks
-
-def bounce(bounce_book,player_rect,movement_x=None,movement_y=None):
-    movement_x = movement_x
-    movement_y = movement_y
-    if movement_x != 0 and movement_y == 0:
-        if bounce_book['bounce_x'] != 0:
-            movement_x = bounce_book['bounce_x']
-        elif bounce_book['bounce_x'] == 0:
-            if bounce_book['bounce_y'] < player_rect.height/2:
-                movement_y = -bounce_book['bounce_y']
-#    elif movement_x != 0 and movement_y != 0:
-    if movement_y != 0:
-        if bounce_book['bounce_y'] != 0:
-            movement_y = bounce_book['bounce_y']
-        elif bounce_book['bounce_y'] == 0:
-            if bounce_book['bounce_x'] < player_rect.width/2:
-                movement_x = bounce_book['bounce_x']
-    return movement_x,movement_y
-    
-def dig(top_bound,right_bound,bottom_bound,left_bound,run_strength,keypressed=None,movement_x=None,movement_y=None):
-    movement_x = 0
-    movement_y = 0
-    if keypressed[K_LEFT]:
-        if not left_bound:
-            movement_x = -run_strength
-        elif left_bound:
-            movement_x = -run_strength/2
-    if keypressed[K_RIGHT]:
-        if not right_bound:
-            movement_x = run_strength
-        elif right_bound:
-            movement_x = run_strength/2
-    if keypressed[K_DOWN]:
-        if not bottom_bound:
-            movement_y = -run_strength
-        elif bottom_bound:
-            movement_y = -run_strength/2
-    if keypressed[K_UP]:
-        if not top_bound:
-            movement_y = run_strength
-        elif top_bound:
-            movement_y = run_strength/2
-
-    return movement_x,movement_y
-
-
-def run(right_bound,bottom_bound,left_bound,run_strength,fly_endurance,fly_time,keypressed=None,movement_x=None):    
-    movement_x = 0
-    movement_y = 0
-    fly_time = fly_endurance
-
-    if keypressed[K_LEFT]:
-        if not left_bound:
-            movement_x = -1*run_strength
-    if keypressed[K_RIGHT]:
-        if not right_bound:
-            movement_x = run_strength
-    if bottom_bound:
-        movement_y = 0
-        if keypressed[K_UP]:
-            movement_y += 8
-    return movement_x,movement_y,fly_time
-
-def swim(top_wet,movement_x,movement_y,keypressed=None):
-    movement_x = movement_x
-    movement_y = movement_y
-    if top_wet:
-        movement_y += 0.5
-    if keypressed[K_LEFT]:
-        if not movement_x < -10:
-            movement_x += -1.25
-    if keypressed[K_RIGHT]:
-        if not movement_x > 10:
-            movement_x += 1.25
-    if keypressed[K_DOWN]:
-        if not movement_y < -10:
-            movement_y += -1.25
-    if movement_y >= 7.5:
-        movement_y -= 1.25    
-    if movement_y <= -7.5:
-        movement_y += 1.25
-    if movement_x > 0:
-        movement_x -= 0.0625
-    elif movement_x < 0:
-        movement_x += 0.0625
-    return movement_x,movement_y
-
-def fly(top_bound,right_bound,bottom_bound,left_bound,fly_strength,fly_endurance,fly_time,movement_x,movement_y,keypressed=None):
-    movement_x = movement_x
-    movement_y = movement_y
-    if not bottom_bound and not movement_y < -fly_strength:
-        movement_y -= 5
-    elif bottom_bound:
-        movement_y = 0
-    if keypressed[K_LEFT]:
-        if not left_bound and not movement_x < fly_strength*-1:
-            movement_x += -6
-    if keypressed[K_RIGHT]:
-        if not right_bound and not movement_x > fly_strength:
-            movement_x += 6
-        
-    if 0 < fly_time <= fly_endurance:
-        if keypressed[K_UP]:
-            if not top_bound and not movement_y > fly_strength:
-                movement_y += 6
-                fly_time -= 1
-    return movement_x,movement_y,fly_time
+#This code works a little. I need it to somehow be a lot smoother. I need to make it so that collisions slowly push you out of a block if you run into the block slowly. And I need it so that if you are embedded in a block already, there is no bounce, just resistance. How to distinguish between embedding and bouncing?
 
 """
 #THIS PART OF THE CODE DOESN'T WORK YET
@@ -286,7 +153,6 @@ def break_block(block_rects,block_loc):
 #Initializations:
 wod = [0,0] #world origin distance
 player_1 = player(screen_width//2,screen_height//2) #By defining the player's spawn_loc this way, I get to make sure it always stays in the center of the screen.
-player_1.update_collision_rects()
 
 movement_x = 0
 movement_y = 0
@@ -326,9 +192,9 @@ while running:
 
             wod[0] = old_wod[0] - (screen_width - old_screen_width)//2
             wod[1] = old_wod[1] + (screen_height - old_screen_height)//2
-            for rect in player_1.rects:
-                rect.centerx += (screen_width - old_screen_width)//2
-                rect.centery += (screen_height - old_screen_height)//2      
+            for s_rect in player_1.rects:
+                player_1.rects[s_rect].centerx += (screen_width - old_screen_width)//2
+                player_1.rects[s_rect].centery += (screen_height - old_screen_height)//2      
 
     #Drawing updates
     display.fill((10, 130, 255))
@@ -337,26 +203,9 @@ while running:
     #Movement
     keypressed = pygame.key.get_pressed()
 
-    #THIS IS THE NEXT THING I NEED TO FIX! I have to make it so that, instead of bounds checking only the solid block_rects, it checks both solid and liquids.
     #Determine the player's current movement type.
-    bounds = check_bounds(player_1.rects[0],(player_1.rects[0].inflate(10,10)),player_1.rect_inf_top,player_1.rect_inf_right,player_1.rect_inf_bottom,player_1.rect_inf_left,block_rects,player_1.bounce_book,player_1.bouncing,player_1.digging,player_1.swimming,movement_x,movement_y)
-    #check_bounds(player_rect,player_rect_inf,player_rect_inf_top,player_rect_inf_right,player_rect_inf_bottom,player_rect_inf_left,all_blocks,bounce_book,bouncing,digging,swimming):
-    #This function returns: top_bound,right_bound,bottom_bound,left_bound,bouncing,digging,swimming,top_wet
-    if bounds[4]:
-        movement_x,movement_y = bounce(player_1.bounce_book,player_1.rects[0],movement_x,movement_y)
-        #print(f'bouncing,bounce_book:{player_1.bounce_book}')
-    elif bounds[5]:
-        movement_x,movement_y = dig(bounds[0],bounds[1],bounds[2],bounds[3],player_1.run_strength,keypressed,movement_x,movement_y)
-        #print('digging')
-    elif bounds[6]:
-        movement_x,movement_y = swim(bounds[7],movement_x,movement_y,keypressed)
-        #print('swimming')
-    elif bounds[2]:    
-        movement_x,movement_y,player_1.fly_time = run(bounds[1],bounds[2],bounds[3],player_1.run_strength,player_1.fly_endurance,player_1.fly_time,keypressed)
-        #print('running')
-    else:
-        movement_x,movement_y,player_1.fly_time = fly(bounds[0],bounds[1],bounds[2],bounds[3],player_1.fly_strength,player_1.fly_endurance,player_1.fly_time,movement_x,movement_y,keypressed)
-        #print('flying')
+    movement_x,movement_y = player.move(player_1,keypressed,block_rects,movement_x,movement_y)
+    
     wod[0] += movement_x
     wod[1] += movement_y
 
