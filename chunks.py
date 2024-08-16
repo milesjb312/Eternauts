@@ -230,15 +230,17 @@ def make_chunks(wod,window_shiftx,window_shifty):
     return block_rects
 
 #THIS PART OF THE CODE DOESN'T WORK YET
-def break_block(break_block_tup,window_width_over2,window_height_over2,wod):
+def break_block(break_block_tup,window_center,wod):
     global window_shiftx
     global window_shifty
     #first, find the wod plus the distance from the center of the screen to the pointer (call this the bwod). Then, find the chunk_wod, then find the distance from the chunk_wod to the bwod, then do the break.
-    #bwod = (wod[0]+ window_shiftx -break_block_tup[0])//pixel_total*pixel_total,-(wod[1]-(window_height_over2-break_block_tup[1]))//pixel_total*pixel_total #  + block_size*16.1725,adj_cwods[adj_cwod][1] + wod[1] - window_shifty + block_size*10.5
-    #break_block_loc = [(wod[0]-bwod[0])//block_size,-(wod[1]-bwod[1])//block_size]
-    print(f'wod: {wod}, \n break_block_tup: {break_block_tup} \n window: {window_width_over2,window_height_over2}, \n chunk_book[{bwod}]:\n{chunk_book[bwod]}, \n break_block_loc: {break_block_loc}')
-    #element = chunk_book[cwod][break_block_loc[0]][break_block_loc[1]]
-    #chunk_book[cwod][break_block_loc[0]-cwod[0]][break_block_loc[1]-cwod[1]] = 0
+    bwod = [wod[0] + break_block_tup[0] - window_center[0] + block_size*0.5, -wod[1] + break_block_tup[1] + window_center[1] - pixel_total-block_size*5.5]
+    bwodc = [bwod[0]//pixel_total*pixel_total,bwod[1]//pixel_total*pixel_total]
+    bloc = [int((bwod[0]-bwodc[0])//block_size),int((bwodc[1]-bwod[1])//block_size)]
+    element = chunk_book[bwodc[0],bwodc[1]][-bloc[1]][bloc[0]]
+    print(f'bwod: {bwod} \n element: {element} \n b_chunk: {chunk_book[bwodc[0],bwodc[1]]}')
+    #print(f'wod: {wod} \n bwod: {bwod} \n bloc: {bloc} \n bwodc: {bwodc} \n chunk_book[{bwodc[0],bwodc[1]}]:\n{chunk_book[bwodc[0],bwodc[1]]}, element: {element}')
+    chunk_book[bwodc[0],bwodc[1]][-bloc[1]][bloc[0]] = 0
     #matter = (break_block_loc[0],break_block_loc[1],block_size,block_size,element)
     #chunk_book[cwod].append(matter)
 

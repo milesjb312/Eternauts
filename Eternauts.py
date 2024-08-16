@@ -69,7 +69,7 @@ while running:
     if event.type == pygame.MOUSEBUTTONDOWN:
         break_block_tup = pygame.mouse.get_pos()
         #print(f'break_block_loc: {break_block_loc}, cwod: {cwod}')
-        chunks.break_block(break_block_tup,window_width//2,window_height//2,wod) 
+        chunks.break_block(break_block_tup,[window_width//2,window_height//2],wod) 
 
     #Drawing updates
     display_mod.display.fill((10, 130, 255))#erase the last frame.
