@@ -1,3 +1,5 @@
+#Intelligences capable of learning truth must learn first to associate perception with a model. They then must be able to test the model, prove and disprove assumptions, and revise the model until their understanding matches reality and can predict it perfectly.
+
 class Intelligence:
     """A Class representing a person's raw intelligence, including their personality and experiences."""
 
