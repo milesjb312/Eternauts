@@ -33,7 +33,7 @@ class player(pygame.sprite.Sprite):
             self.rects[sr].centerx = window_centerx
             self.rects[sr].centery = window_centery
 
-    def move(self,keypressed,all_blocks,gravity,movement_x,movement_y):
+    def move(self,keypressed,block_rects,gravity,movement_x,movement_y):
         lb = False
         tb = False
         rb = False
@@ -45,7 +45,7 @@ class player(pygame.sprite.Sprite):
             srtb = pygame.Rect(self.rects[sr].left,self.rects[sr].top+1,self.rects[sr].width,1)
             srrb = pygame.Rect(self.rects[sr].right,self.rects[sr].top,1,self.rects[sr].height)
             srbb = pygame.Rect(self.rects[sr].left,self.rects[sr].bottom,self.rects[sr].width,1)
-            for block in all_blocks['solid']['all']:
+            for block in block_rects['solid']['all']:
                 #If the player isn't being accelerated by an outside force:
                 #Should I make the player incapable of movement for a short time after collisions? Probably not
                 #First, check what the player's rects are currently colliding with.
@@ -70,7 +70,7 @@ class player(pygame.sprite.Sprite):
                 self.jump_strength = self.jump_endurance
                 #print(f'{lb,tb,rb,bb}')
             #I'm not sure why, but you have to check the blocks again after the boundaries have been established, instead of immediately checking them against the same block that establishes the boundaries.            
-            for block in all_blocks['solid']['all']:
+            for block in block_rects['solid']['all']:
                 if srlb.colliderect(block):
                     if block.right > srlb.left:
                         movement_x = self.rects[sr].clip(block).width

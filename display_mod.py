@@ -21,7 +21,7 @@ wod_font = font.SysFont(None,font_size)
 #Render HUD
 def render_hud(wod):
     #wod stands for world origin distance
-    wod_text = f'WOD:{round(wod[0]),round(wod[1])}'
+    wod_text = f'WOD:{round(wod[0]),round(-wod[1])}'
     wod_text_surface = wod_font.render(wod_text,True,(255,255,255))
     hud_surface = pygame.Surface((wod_text_surface.get_width(),wod_text_surface.get_height()))
     hud_surface.fill((0,0,0))

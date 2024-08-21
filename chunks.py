@@ -9,6 +9,14 @@ block_size = 30
 pixel_total = chunk_size*block_size
 adj_cwods = [(0,0)]*56
 chunk_book = {}
+matter_list = []
+
+#Element colors:
+oneium = (10,255,30)
+twoium = (100,120,120)
+threeium = (10,30,255)
+fourium = (100,100,10)
+color_dict = {'1':oneium,'2':twoium,'3':threeium,'4':fourium}
 
 #cwods in this module refer to the top left pixel of each chunk's world origin distance. Thus, cwod[0] refers to the latitude of a chunk, while cwod[1] refers to the altitude.
 #This code detects which chunks need to be generated based on the top-left pixels' locations
@@ -212,44 +220,100 @@ def make_chunks(wod,window_shiftx,window_shifty):
         #Create the actual blocks from the chunk recorded in the dictionary.
         for column in range(chunk_size):
             for row in range(chunk_size):
-                block_value = chunk_array[row,column]
+                element = chunk_array[row,column]
                 block_loc = (int(cloc[0] + column * block_size),int(cloc[1] + row * block_size))
                 block_rect = pygame.Rect(block_loc[0],block_loc[1],block_size,block_size)
                 #if adj_cwods[adj_cwod] == (0,0):
                 #    block_rects['liquid']['all'].append(block_rect)
-                if block_value in [1,2]:
+                if element in [1,2]:
                     block_rects['solid']['all'].append(block_rect)
-                    if block_value == 1:
+                    if element == 1:
                         block_rects['solid']['oneium'].append(block_rect)
-                    elif block_value == 2:
+                    elif element == 2:
                         block_rects['solid']['twoium'].append(block_rect)
-                elif block_value == 3:
+                elif element == 3:
                     block_rects['liquid']['all'].append(block_rect)
-                elif block_value == 4:
+                elif element == 4:
                     block_rects['gas']['all'].append(block_rect)
     return block_rects
 
-#THIS PART OF THE CODE DOESN'T WORK YET
+def draw_blocks(block_rects,display):
+    for block_rect in block_rects['solid']['oneium']:
+        pygame.draw.rect(display, oneium,block_rect)
+    for block_rect in block_rects['solid']['twoium']:
+        pygame.draw.rect(display, twoium,block_rect)
+    for block_rect in block_rects['liquid']['all']:
+        pygame.draw.rect(display, threeium,block_rect)
+    for block_rect in block_rects['gas']['all']:
+        pygame.draw.rect(display, fourium,block_rect)
+
 def break_block(break_block_tup,window_center,wod):
     global window_shiftx
     global window_shifty
     #first, find the wod plus the distance from the center of the screen to the pointer (call this the bwod). Then, find the chunk_wod, then find the distance from the chunk_wod to the bwod, then do the break.
-    bwod = [wod[0] + break_block_tup[0] - window_center[0] + block_size*0.5, -wod[1] + break_block_tup[1] + window_center[1] - pixel_total-block_size*5.5]
+    #bwod = [wod[0] + break_block_tup[0] - window_center[0] + block_size*0.5, -wod[1] + break_block_tup[1] + window_center[1] - pixel_total - block_size*5.5]
+    bwod = [wod[0] + break_block_tup[0] - window_center[0] + window_shiftx + block_size*0.5, -wod[1] + break_block_tup[1] - window_center[1] - window_shifty - block_size*0.5]
     bwodc = [bwod[0]//pixel_total*pixel_total,bwod[1]//pixel_total*pixel_total]
-    bloc = [int((bwod[0]-bwodc[0])//block_size),int((bwodc[1]-bwod[1])//block_size)]
-    element = chunk_book[bwodc[0],bwodc[1]][-bloc[1]][bloc[0]]
-    print(f'bwod: {bwod} \n element: {element} \n b_chunk: {chunk_book[bwodc[0],bwodc[1]]}')
-    #print(f'wod: {wod} \n bwod: {bwod} \n bloc: {bloc} \n bwodc: {bwodc} \n chunk_book[{bwodc[0],bwodc[1]}]:\n{chunk_book[bwodc[0],bwodc[1]]}, element: {element}')
-    chunk_book[bwodc[0],bwodc[1]][-bloc[1]][bloc[0]] = 0
-    #matter = (break_block_loc[0],break_block_loc[1],block_size,block_size,element)
-    #chunk_book[cwod].append(matter)
+    bloc = [int((bwod[0]-bwodc[0])//block_size),int((bwod[1]-bwodc[1])//block_size)]
+    element = chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]]
+    chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]] = 0
+    matter_list.append([bwod,element,0])
 
-def draw_blocks(block_rects,display):
-    for block_rect in block_rects['solid']['oneium']:
-        pygame.draw.rect(display, (10,255,30),block_rect)
-    for block_rect in block_rects['solid']['twoium']:
-        pygame.draw.rect(display, (100,120,120),block_rect)
-    for block_rect in block_rects['liquid']['all']:
-        pygame.draw.rect(display, (10,30,255),block_rect)
-    for block_rect in block_rects['gas']['all']:
-        pygame.draw.rect(display, (100,100,10),block_rect)
+def make_matter(wod,block_rects,gravity,window_center,display):
+    matter_shapes = []
+    matter_shapes['solid'] = []
+    matter_shapes['liquid'] = []
+    matter_shapes['gas'] = []
+    matter_shapes['matter'] = []
+    for matter in matter_list:
+        mwod = [matter[0][0] - wod[0] + window_center[0] - block_size, matter[0][1] + wod[1] + window_center[1]]
+        matter_shape = pygame.Rect(mwod[0],mwod[1],block_size*0.9,block_size*0.9)
+        if matter_shape.collidelist(block_rects['solid']['all']):
+                lb = False
+                tb = False
+                rb = False
+                bb = False
+                srlb = pygame.Rect(matter_shape.left-1,matter_shape.top,1,matter_shape.height) #self_rect_left_boundary
+                srtb = pygame.Rect(matter_shape.left,matter_shape.top+1,matter_shape.width,1)
+                srrb = pygame.Rect(matter_shape.right,matter_shape.top,1,matter_shape.height)
+                srbb = pygame.Rect(matter_shape.left,matter_shape.bottom,matter_shape.width,1)
+                for block in block_rects['solid']['all']:
+                        if srlb.colliderect(block):
+                            lb = True
+                        if srrb.colliderect(block):
+                            rb = True
+                        if srtb.colliderect(block):
+                            tb = True
+                        if srbb.colliderect(block):
+                            bb = True
+                for block in block_rects['solid']['all']:
+                    if srlb.colliderect(block):
+                        if block.right > srlb.left:
+                            matter[0][0] += matter_shape.clip(block).width
+                    if srrb.colliderect(block):
+                        if block.left < srrb.right:
+                            matter[0][0] += -matter_shape.clip(block).width
+                    if srtb.colliderect(block):
+                        if block.bottom < srtb.top:
+                            matter[0][1] += matter_shape.clip(block).height
+                    if srbb.colliderect(block):
+                        if block.top < srbb.bottom:
+                            matter[0][1] -= matter_shape.clip(block).height
+                    #if not bb:
+                    #    matter[0][1] += gravity
+                matter_shape = [(mwod[0],mwod[1],block_size*0.9,block_size*0.9),]
+        matter_shapes.append(matter_shape)
+    return matter_shapes
+
+#def draw_matter(matter_shapes,display):
+    #for matter_shape in matter_shapes:
+        #if matter_shape[1] == 0:
+        #pygame.draw.rect(display,color_dict[str.split(str(matter[1]),'.')[0]],matter_shape)
+
+    #Next, come up with some way to check all the matter in the world's current location, then only bother rendering the ones within the adj_cwod range.
+    #Not sure how to incorporate these next 2 lines, but these translations will have to happen if I want the objects to coordinate with the chunks.
+    #cloc = (adj_cwods[adj_cwod][0] - wod[0] + window_shiftx + block_size*16.1725,adj_cwods[adj_cwod][1] + wod[1] - window_shifty + block_size*10.5) #translate all the arrays as you move or when the window is resized
+    #block_loc = (int(cloc[0] + column * block_size),int(cloc[1] + row * block_size))
+    #block_rect = pygame.Rect(block_loc[0],block_loc[1],block_size,block_size)
+    
+    return matter_list

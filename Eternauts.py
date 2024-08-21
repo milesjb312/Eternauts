@@ -30,6 +30,7 @@ window_shifty = 0
 while running:
     #Chunks
     block_rects = chunks.make_chunks(wod,window_shiftx,window_shifty) #to this, add a variable that represents the shifting distance for changing window size
+    #matter_shapes = 
     cwod = wod[0]//chunks.pixel_total*chunks.pixel_total,-wod[1]//chunks.pixel_total*chunks.pixel_total
     #Game loop
     for event in pygame.event.get():
@@ -68,12 +69,12 @@ while running:
     #Block interaction
     if event.type == pygame.MOUSEBUTTONDOWN:
         break_block_tup = pygame.mouse.get_pos()
-        #print(f'break_block_loc: {break_block_loc}, cwod: {cwod}')
         chunks.break_block(break_block_tup,[window_width//2,window_height//2],wod) 
 
     #Drawing updates
     display_mod.display.fill((10, 130, 255))#erase the last frame.
     chunks.draw_blocks(block_rects,display_mod.display)#draw all the blocks.
+    chunks.draw_matter(wod,block_rects,gravity,[window_width//2,window_height//2],display_mod.display)
     player_1.draw(display_mod)#draw the player
     hud_surface = display_mod.render_hud(wod)#draw the hud
     display_mod.display.blit(hud_surface,(window_width-hud_surface.get_width(),0))
