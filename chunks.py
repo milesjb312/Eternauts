@@ -12,11 +12,12 @@ chunk_book = {}
 matter_list = []
 
 #Element colors:
+zeroium = (0,0,0)
 oneium = (10,255,30)
 twoium = (100,120,120)
 threeium = (10,30,255)
 fourium = (100,100,10)
-color_dict = {'1':oneium,'2':twoium,'3':threeium,'4':fourium}
+color_dict = {'0':zeroium,'1':oneium,'2':twoium,'3':threeium,'4':fourium}
 
 #cwods in this module refer to the top left pixel of each chunk's world origin distance. Thus, cwod[0] refers to the latitude of a chunk, while cwod[1] refers to the altitude.
 #This code detects which chunks need to be generated based on the top-left pixels' locations
@@ -239,13 +240,14 @@ def make_chunks(wod,window_shiftx,window_shifty):
 
 def draw_blocks(block_rects,display):
     for block_rect in block_rects['solid']['oneium']:
-        pygame.draw.rect(display, oneium,block_rect)
+        pygame.draw.rect(display,oneium,block_rect)
     for block_rect in block_rects['solid']['twoium']:
-        pygame.draw.rect(display, twoium,block_rect)
+        pygame.draw.rect(display,twoium,block_rect)
     for block_rect in block_rects['liquid']['all']:
-        pygame.draw.rect(display, threeium,block_rect)
+        pygame.draw.rect(display,threeium,block_rect)
     for block_rect in block_rects['gas']['all']:
-        pygame.draw.rect(display, fourium,block_rect)
+        pygame.draw.rect(display,fourium,block_rect)
+    #may want to eventually change this to be more like the drawing handler for matter so it's easier to read.
 
 def break_block(break_block_tup,window_center,wod):
     global window_shiftx
@@ -257,58 +259,57 @@ def break_block(break_block_tup,window_center,wod):
     bloc = [int((bwod[0]-bwodc[0])//block_size),int((bwod[1]-bwodc[1])//block_size)]
     element = chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]]
     chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]] = 0
-    matter_list.append([bwod,element,0])
+    if element != 0:
+        matter_list.append([bwod,element,0])
 
+#Next, change this so that there's no matter_shapes list. Have everything done and updated immediately in the matter_list itself, then draw things from the matter_list directly.
 def make_matter(wod,block_rects,gravity,window_center,display):
     matter_shapes = []
-    matter_shapes['solid'] = []
-    matter_shapes['liquid'] = []
-    matter_shapes['gas'] = []
-    matter_shapes['matter'] = []
     for matter in matter_list:
         mwod = [matter[0][0] - wod[0] + window_center[0] - block_size, matter[0][1] + wod[1] + window_center[1]]
         matter_shape = pygame.Rect(mwod[0],mwod[1],block_size*0.9,block_size*0.9)
-        if matter_shape.collidelist(block_rects['solid']['all']):
-                lb = False
-                tb = False
-                rb = False
-                bb = False
-                srlb = pygame.Rect(matter_shape.left-1,matter_shape.top,1,matter_shape.height) #self_rect_left_boundary
-                srtb = pygame.Rect(matter_shape.left,matter_shape.top+1,matter_shape.width,1)
-                srrb = pygame.Rect(matter_shape.right,matter_shape.top,1,matter_shape.height)
-                srbb = pygame.Rect(matter_shape.left,matter_shape.bottom,matter_shape.width,1)
-                for block in block_rects['solid']['all']:
+        if matter[1] in [0,1]:
+            lb = False
+            tb = False
+            rb = False
+            bb = False
+            srlb = pygame.Rect(matter_shape.left-1,matter_shape.top,1,matter_shape.height) #self_rect_left_boundary
+            srtb = pygame.Rect(matter_shape.left,matter_shape.top+1,matter_shape.width,1)
+            srrb = pygame.Rect(matter_shape.right,matter_shape.top,1,matter_shape.height)
+            srbb = pygame.Rect(matter_shape.left,matter_shape.bottom,matter_shape.width,1)
+            if matter_shape.collidelist(block_rects['solid']['all']):
+                    for block in block_rects['solid']['all']:
+                            if srlb.colliderect(block):
+                                lb = True
+                            if srrb.colliderect(block):
+                                rb = True
+                            if srtb.colliderect(block):
+                                tb = True
+                            if srbb.colliderect(block):
+                                bb = True
+                    for block in block_rects['solid']['all']:
                         if srlb.colliderect(block):
-                            lb = True
+                            if block.right > srlb.left:
+                                matter[0][0] += matter_shape.clip(block).width
                         if srrb.colliderect(block):
-                            rb = True
+                            if block.left < srrb.right:
+                                matter[0][0] += -matter_shape.clip(block).width
                         if srtb.colliderect(block):
-                            tb = True
+                            if block.bottom < srtb.top:
+                                matter[0][1] += matter_shape.clip(block).height
                         if srbb.colliderect(block):
-                            bb = True
-                for block in block_rects['solid']['all']:
-                    if srlb.colliderect(block):
-                        if block.right > srlb.left:
-                            matter[0][0] += matter_shape.clip(block).width
-                    if srrb.colliderect(block):
-                        if block.left < srrb.right:
-                            matter[0][0] += -matter_shape.clip(block).width
-                    if srtb.colliderect(block):
-                        if block.bottom < srtb.top:
-                            matter[0][1] += matter_shape.clip(block).height
-                    if srbb.colliderect(block):
-                        if block.top < srbb.bottom:
-                            matter[0][1] -= matter_shape.clip(block).height
-                    #if not bb:
-                    #    matter[0][1] += gravity
-                matter_shape = [(mwod[0],mwod[1],block_size*0.9,block_size*0.9),]
+                            if block.top < srbb.bottom:
+                                matter[0][1] -= matter_shape.clip(block).height
+            if not bb:
+                matter[0][1] += gravity
+        mwod = [matter[0][0] - wod[0] + window_center[0] - block_size, matter[0][1] + wod[1] + window_center[1]]
+        matter_shape = [(mwod[0],mwod[1],block_size*0.9,block_size*0.9),matter[1],matter[2]]
         matter_shapes.append(matter_shape)
     return matter_shapes
 
-#def draw_matter(matter_shapes,display):
-    #for matter_shape in matter_shapes:
-        #if matter_shape[1] == 0:
-        #pygame.draw.rect(display,color_dict[str.split(str(matter[1]),'.')[0]],matter_shape)
+def draw_matter(matter_shapes,display):
+    for matter_shape in matter_shapes:
+        pygame.draw.rect(display,color_dict[str.split(str(matter_shape[1]),'.')[0]],matter_shape[0])
 
     #Next, come up with some way to check all the matter in the world's current location, then only bother rendering the ones within the adj_cwod range.
     #Not sure how to incorporate these next 2 lines, but these translations will have to happen if I want the objects to coordinate with the chunks.
