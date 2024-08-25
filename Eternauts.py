@@ -61,14 +61,14 @@ while running:
         wod[0] = 0
         wod[1] = 0
 
-    #if keypressed[K_c]:
-    #    print(f'chunk_book: {chunks.chunk_book[cwod]}')
+    if keypressed[K_m]:
+        print(f'matter_list: {chunks.matter_list}, wod: {wod}')
 
     #Block interaction
     if event.type == pygame.MOUSEBUTTONDOWN:
         break_block_tup = pygame.mouse.get_pos()
         chunks.break_block(break_block_tup,[window_width//2,window_height//2],wod) 
-
+        
     chunks.move_matter(wod,block_rects,gravity,[window_width//2,window_height//2])
 
     #Drawing updates

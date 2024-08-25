@@ -253,34 +253,37 @@ def break_block(break_block_tup,window_center,wod):
     global window_shiftx
     global window_shifty
     #first, find the wod plus the distance from the center of the screen to the pointer (call this the bwod). Then, find the chunk_wod, then find the distance from the chunk_wod to the bwod, then do the break.
-    #bwod = [wod[0] + break_block_tup[0] - window_center[0] + block_size*0.5, -wod[1] + break_block_tup[1] + window_center[1] - pixel_total - block_size*5.5]
-    bwod = [wod[0] + break_block_tup[0] - window_center[0] + window_shiftx + block_size*0.5, -wod[1] + break_block_tup[1] - window_center[1] - window_shifty - block_size*0.5]
+    bwod = [round(wod[0] + break_block_tup[0] - window_center[0] + window_shiftx + block_size*0.5,2), round(-wod[1] + break_block_tup[1] - window_center[1] - window_shifty - block_size*0.5,2)]
     bwodc = [bwod[0]//pixel_total*pixel_total,bwod[1]//pixel_total*pixel_total]
     bloc = [int((bwod[0]-bwodc[0])//block_size),int((bwod[1]-bwodc[1])//block_size)]
     element = chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]]
     chunk_book[bwodc[0],bwodc[1]][bloc[1]][bloc[0]] = 0
-    mwod = [bwod[0] - wod[0] + window_center[0] - block_size, bwod[1] + wod[1] + window_center[1]]
-    matter_rect = pygame.Rect(mwod[0],mwod[1],block_size*0.9,block_size*0.9)
+    mwod = [round(bwod[0] - wod[0] + window_center[0] - block_size,2), round(bwod[1] + wod[1] + window_center[1],2)]
     state = 0
+    original_wod = [wod[0],wod[1]]
     if element != 0:
-        matter_list.append({'rect':matter_rect,'element':element,'state':state,'movement_x':0,'movement_y':0})
+        matter_list.append({'original_break_block_tup':break_block_tup,'original_wod':original_wod,'mwod':mwod,'original_window_center':window_center,'final_window_center':0,'element':element,'state':state,'movement_x':0,'movement_y':0})
+        print(f'matter_list: {matter_list}')
 
 #Next, change this to have everything done and updated immediately in the matter_list itself, then draw things from the matter_list directly.
 #After that, make it so that the matter also gets checked for collisions with other matter. May need to split the matter into its resident chunks or something so that the program doesn't get exhausted.
 def move_matter(wod,block_rects,gravity,window_center):
     for matter in matter_list:
+        matter['mwod'][0] = round(matter['original_wod'][0] - wod[0] + matter['original_break_block_tup'][0] - block_size*0.5,2) #+ window_center[0] - matter['original_window_center'][0]
+        matter['mwod'][1] = round(-matter['original_wod'][1] + wod[1] + matter['original_break_block_tup'][1] - block_size*0.5,2)  #+ window_center[1] - matter['original_window_center'][1]
         matter['movement_x'] = 0
         matter['movment_y'] = 0
+        temp_matter_rect = pygame.Rect(matter['mwod'][0],matter['mwod'][1],block_size*0.9,block_size*0.9)
         if matter['element'] in [0,1]:
             lb = False
             tb = False
             rb = False
             bb = False
-            mrlb = pygame.Rect(matter['rect'].left-1,matter['rect'].top,1,matter['rect'].height)
-            mrtb = pygame.Rect(matter['rect'].left,matter['rect'].top+1,matter['rect'].width,1)
-            mrrb = pygame.Rect(matter['rect'].right,matter['rect'].top,1,matter['rect'].height)
-            mrbb = pygame.Rect(matter['rect'].left,matter['rect'].bottom,matter['rect'].width,1)
-            if matter['rect'].collidelist(block_rects['solid']['all']):
+            mrlb = pygame.Rect(temp_matter_rect.left-1,temp_matter_rect.top,1,temp_matter_rect.height)
+            mrtb = pygame.Rect(temp_matter_rect.left,temp_matter_rect.top+1,temp_matter_rect.width,1)
+            mrrb = pygame.Rect(temp_matter_rect.right,temp_matter_rect.top,1,temp_matter_rect.height)
+            mrbb = pygame.Rect(temp_matter_rect.left,temp_matter_rect.bottom,temp_matter_rect.width,1)
+            if temp_matter_rect.collidelist(block_rects['solid']['all']):
                 for block in block_rects['solid']['all']:
                     if mrlb.colliderect(block):
                         lb = True
@@ -293,34 +296,36 @@ def move_matter(wod,block_rects,gravity,window_center):
                 for block in block_rects['solid']['all']:
                     if mrlb.colliderect(block):
                         if block.right > mrlb.left:
-                            matter['movement_x'] = matter['movement_x']*0.9
-                            matter['movement_x'] += min(matter['rect'].clip(block).width//5,block_size//5)
+                            matter['movement_x'] = round(matter['movement_x']*0.9,2)
+                            matter['movement_x'] += round(min(temp_matter_rect.clip(block).width//5,block_size//5),2)
                     if mrrb.colliderect(block):
                         if block.left < mrrb.right:
-                            matter['movement_x'] = matter['movement_x']*0.9
-                            matter['movement_x'] += -min(matter['rect'].clip(block).width//5,block_size//5)
+                            matter['movement_x'] = round(matter['movement_x']*0.9,2)
+                            matter['movement_x'] += round(-min(temp_matter_rect.clip(block).width//5,block_size//5),2)
                     if mrtb.colliderect(block):
                         if block.bottom < mrtb.top:
-                            matter['movement_y'] = matter['movement_y']*0.9
-                            matter['movement_y'] += min(matter['rect'].clip(block).height//5,block_size//5)
+                            matter['movement_y'] = round(matter['movement_y']*0.9,2)
+                            matter['movement_y'] += round(min(temp_matter_rect.clip(block).height//5,block_size//5),2)
                     if mrbb.colliderect(block):
                         if block.top < mrbb.bottom:
-                            matter['movement_y'] = matter['movement_y']*0.9
-                            matter['movement_y'] -= min(matter['rect'].clip(block).height//5,block_size//5)
+                            matter['movement_y'] = round(matter['movement_y']*0.9,2)
+                            matter['movement_y'] -= round(min(temp_matter_rect.clip(block).height//5,block_size//5),2)
             if not bb:
                 if matter['movement_y'] <= block_size//5:
                     matter['movement_y'] += gravity
             #elif bb:
                 #make a list of the blocks underneath the matter_rect and do a mass center determination to know whether it should tumble. This should only be done later, when things can actually rotate and store rotational momentum.
 
-        matter['rect'].centerx += round(matter['movement_x'],2)
-        matter['rect'].centery += round(matter['movement_y'],2)
-        
+        matter['original_wod'][0] += round(matter['movement_x'],2)
+        matter['original_wod'][1] -= round(matter['movement_y'],2)
+
+
 def draw_matter(matter_list,display):
     for matter in matter_list:
-        pygame.draw.rect(display,color_dict[str.split(str(matter['element']),'.')[0]],matter['rect'])
+        matter_rect = pygame.Rect(matter['mwod'][0],matter['mwod'][1],block_size*0.9,block_size*0.9)
+        pygame.draw.rect(display,color_dict[str.split(str(matter['element']),'.')[0]],matter_rect)
 
-    #Next, come up with some way to check all the matter in the world's current location, then only bother rendering the ones within the adj_cwod range.
+    #Come up with some way to check all the matter in the world's current location, then only bother rendering the ones within the adj_cwod range.
     #Not sure how to incorporate these next 2 lines, but these translations will have to happen if I want the objects to coordinate with the chunks.
     #cloc = (adj_cwods[adj_cwod][0] - wod[0] + window_shiftx + block_size*16.1725,adj_cwods[adj_cwod][1] + wod[1] - window_shifty + block_size*10.5) #translate all the arrays as you move or when the window is resized
     #block_loc = (int(cloc[0] + column * block_size),int(cloc[1] + row * block_size))
