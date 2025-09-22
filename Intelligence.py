@@ -8,6 +8,8 @@ class Intelligence:
         core_attributes = {"Love-Hate":0,"Integrity-Chaos":0} #Core attributes are the core of our being, how we truly feel about and act toward things.
         #We either love or hate things (meaning we want to have those things or we want those things to cease) and we either act in accordance with our
         #knowledge and feelings or we do not.
+        #More sub-attributes are needed, especially to describe physical characteristics. Also, some should be booleans, some should be ranges, and an opposite characteristic is not always necessary.
+        #I will need to make a matrix of all possible perceptions. Different intelligences can perceive and then react to different things variably. Some things are imperceptible to some.
         sub_attributes = {"Charity-Greed":0,
                           "Communicativity-Silence":0,
                           "Confidence-Unconfidence"
